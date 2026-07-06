@@ -1,0 +1,59 @@
+name: Bug report
+description: Report something that isn't working in CDP Web
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! The **version** and **where you found it**
+        are the two most useful things — if you opened this from CDP Web's Help ▸ Report a bug…
+        menu they're already filled in for you below.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Shown in Help ▸ About cdp-web… (auto-filled if you came from the app's menu).
+      placeholder: e.g. 0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: context
+    attributes:
+      label: Where did you find the bug?
+      description: CDP Web can run on its own, inside the CDP plugin, or inside the CDP extension.
+      options:
+        - CDP for Web (browser)
+        - CDP plugin (VST/AU in a DAW)
+        - CDP extension (Ableton Live)
+        - Other / not sure
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what actually happened?
+      placeholder: Describe the bug. Screenshots or a screen recording help a lot.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The exact steps someone else could follow to see the same problem.
+      placeholder: |
+        1. Add a … node
+        2. Set … to …
+        3. Click Run
+        4. …
+    validations:
+      required: false
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser + OS, or DAW + version if you were in the plugin/extension.
+      placeholder: e.g. Chrome 138 on macOS 15.5 — or Ableton Live 12.1 on Windows 11
+    validations:
+      required: false

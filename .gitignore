@@ -1,0 +1,5 @@
+node_modules/
+/recipes/
+/dist/
+.DS_Store
+*.log

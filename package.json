@@ -1,0 +1,22 @@
+{
+  "name": "cdp-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Browser front-end (GEM-desktop modular patcher) for CDP, built on @olilarkin/cdp-wasm. Also serves as the shared UI for the VST plugin and Ableton Live extension.",
+  "license": "LGPL-2.1-or-later",
+  "type": "module",
+  "scripts": {
+    "serve": "node serve.mjs",
+    "vendor": "node scripts/vendor-engine.mjs",
+    "build": "node scripts/build-site.mjs",
+    "bundle": "node scripts/bundle.mjs",
+    "test": "node scripts/validate-recipes.mjs",
+    "docs:recipes": "node scripts/render-recipes.mjs",
+    "docs:manual": "node scripts/build-manual.mjs"
+  },
+  "dependencies": {
+    "@grame/faustwasm": "^0.16.4",
+    "@olilarkin/cdp-sampler": "file:../cdp-sampler",
+    "@olilarkin/cdp-wasm": "file:../cdp-wasm"
+  }
+}
