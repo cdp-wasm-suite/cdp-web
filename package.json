@@ -1,6 +1,6 @@
 {
   "name": "@cdp-wasm-suite/cdp-web",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "Browser front-end (GEM-desktop modular patcher) for CDP, built on cdp-wasm. Also serves as the shared UI for the VST plugin and Ableton Live extension.",
   "license": "AGPL-3.0-or-later",
@@ -10,16 +10,17 @@
     "vendor": "node scripts/vendor-engine.mjs",
     "build": "node scripts/build-site.mjs",
     "bundle": "node scripts/bundle.mjs",
-    "test": "node scripts/validate-recipes.mjs",
+    "test": "node scripts/validate-recipes.mjs && node scripts/build-manual.mjs --check",
     "audit:ranges": "node scripts/audit-param-ranges.mjs",
     "icons": "node scripts/make-icons.mjs",
     "docs:recipes": "node scripts/render-recipes.mjs",
-    "docs:manual": "node scripts/build-manual.mjs"
+    "docs:manual": "node scripts/build-manual.mjs",
+    "docs:manual:check": "node scripts/build-manual.mjs --check"
   },
   "dependencies": {
     "@cdp-wasm-suite/cdp-sampler": "^0.1.0",
     "@grame/faustwasm": "^0.16.4",
-    "cdp-wasm": "^0.3.1",
+    "cdp-wasm": "^0.3.2",
     "monaco-editor": "^0.52.2"
   }
 }

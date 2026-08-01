@@ -343,6 +343,34 @@ const manual = {
   pages,
 };
 
-writeFileSync(join(root, 'manual.json'), JSON.stringify(manual));
-console.log(`✓ manual.json — ${Object.keys(pages).length} pages`
-  + `${existsSync(LOCAL) ? ` (+${overrides} local override(s) from manual/)` : ''}`);
+const OUT = join(root, 'manual.json');
+const json = JSON.stringify(manual);
+const suffix = existsSync(LOCAL) ? ` (+${overrides} local override(s) from manual/)` : '';
+
+// --check: verify the committed manual.json matches what we'd generate, and
+// change nothing. manual.json is a derived artifact that is committed (the app
+// fetches it at runtime), so it goes stale silently whenever a CHANGELOG or a
+// manual/ page is edited without re-running this. `npm test` runs this mode.
+if (process.argv.includes('--check')) {
+  const current = existsSync(OUT) ? readFileSync(OUT, 'utf8') : null;
+  if (current === json) {
+    console.log(`✓ manual.json is up to date — ${Object.keys(pages).length} pages${suffix}`);
+    process.exit(0);
+  }
+  console.error('✗ manual.json is out of date — regenerate and commit it:');
+  console.error('    npm run docs:manual');
+  if (current === null) {
+    console.error('  (no manual.json on disk)');
+  } else {
+    // Name the pages that differ, so the failure says what actually drifted.
+    let before = {};
+    try { before = JSON.parse(current).pages ?? {}; } catch { /* unparseable — treat as all-changed */ }
+    const keys = [...new Set([...Object.keys(before), ...Object.keys(pages)])];
+    const drifted = keys.filter((k) => JSON.stringify(before[k]) !== JSON.stringify(pages[k]));
+    if (drifted.length) console.error(`  pages differing: ${drifted.join(', ')}`);
+  }
+  process.exit(1);
+}
+
+writeFileSync(OUT, json);
+console.log(`✓ manual.json — ${Object.keys(pages).length} pages${suffix}`);

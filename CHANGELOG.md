@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-08-01
+
+### Changed
+- Engine updated to cdp-wasm 0.3.2 (documentation only upstream; `src/` and
+  `wasm/` are unchanged since 0.3.0).
+
+### Fixed
+- The in-app release notes (Help ▸ Release notes) showed stale text:
+  `manual.json` embeds both changelogs and is a committed derived artifact, so
+  it went out of date whenever a changelog was edited without regenerating it.
+  `npm test` now fails when it drifts.
+
 ## [0.3.0] - 2026-08-01
 
 **This release makes the app usable on a phone.** It installs to the home screen
@@ -254,5 +266,6 @@ generators, effect and PVOC nodes, breakpoint envelopes, Faust devices, the
 sampler keyboard, recipes, and the browsable manual. Also serves as the shared
 UI for the VST plugin and Ableton Live extension.
 
+[0.3.1]: https://github.com/cdp-wasm-suite/cdp-web/releases/tag/v0.3.1
 [0.3.0]: https://github.com/cdp-wasm-suite/cdp-web/releases/tag/v0.3.0
 [0.1.0]: https://github.com/cdp-wasm-suite/cdp-web/releases/tag/v0.1.0
