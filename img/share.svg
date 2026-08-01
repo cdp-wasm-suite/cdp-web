@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Share: three nodes joined by two cables, drawn on a 9x9 pixel grid so it
+     stays crisp next to the bitmap UI font (used as a CSS mask, so colour is
+     supplied by the theme, not here). -->
+<svg role="img" viewBox="0 0 9 9" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">
+ <path d="M0 3h3v3H0zM6 0h3v3H6zM6 6h3v3H6zM3 3h1v1H3zM4 2h1v1H4zM5 1h1v1H5zM3 5h1v1H3zM4 6h1v1H4zM5 7h1v1H5z"/>
+</svg>

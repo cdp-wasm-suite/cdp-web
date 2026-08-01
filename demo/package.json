@@ -1,0 +1,20 @@
+{
+  "name": "cdp-web-demo",
+  "private": true,
+  "type": "module",
+  "description": "Capture rig for cdp-web: Playwright drives the real app, Remotion (or ffmpeg) composites. Kept out of the app's package.json so no dev-only or source-available dep lands in the AGPL manifest or dist/.",
+  "scripts": {
+    "capture": "node rig/run-scene.mjs",
+    "encode": "node rig/encode.mjs",
+    "previews": "node rig/previews.mjs",
+    "studio": "npm --prefix remotion run studio",
+    "render": "npm --prefix remotion run render",
+    "verify": "npm run verify:raf && npm run verify:audio && npm run verify:determinism",
+    "verify:raf": "node spike/raf-probe.mjs",
+    "verify:audio": "node spike/audio-integrity.mjs",
+    "verify:determinism": "node spike/determinism.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.0"
+  }
+}

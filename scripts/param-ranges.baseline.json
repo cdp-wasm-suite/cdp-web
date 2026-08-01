@@ -1,0 +1,2056 @@
+{
+  "findings": {
+    "modify.loudness/gain/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "modify.speed/semitones/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "modify.speed/semitones/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "tremolo.tremolo/frq/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "tremolo.tremolo/frq/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.lohi/passband/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.lohi/passband/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.lohi/stopband/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.lohi/stopband/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distort.average/cycles/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "clip.clip/level/CONTENT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "distort.reverse/cyclecnt/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "gate.gate/level/OVER_WIDE_MIN": {
+      "tier": "error",
+      "note": ""
+    },
+    "gate.gate/level/CONTENT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "distort.divide/div/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "gate.edit/level/OVER_WIDE_MIN": {
+      "tier": "error",
+      "note": ""
+    },
+    "gate.edit/level/CONTENT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "distort.delete/cyclecnt/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distort.interpolate/cycles/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distort.telescope/cycles/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distort.replace/cyclecnt/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "modify.stack/transpos/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "modify.stack/transpos/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "modify.stack/count/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "modify.stack/lean/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "modify.stack/atk/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "modify.stack/gain/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "modify.stack/dur/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "stretch.time/factor/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "envel.tremolo/frq/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "envel.tremolo/frq/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "grain.duplicate/n/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "hover.hover/frq/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "hover.hover/frq/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "hover.hover/dur/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "tremenv.tremenv/frq/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "tremenv.tremenv/frq/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "envel.swell/peaktime/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "modify.space/pan/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "modify.space/pan/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "envel.attack/gain/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "envel.attack/onset/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "envel.attack/decay/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "abfpan.bformat/endpos/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "abfpan.bformat/endpos/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "grain.timewarp/ratio/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "spin.stereo/rate/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "spin.stereo/rate/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distort.cyclefilter/freqlo/OVER_WIDE_MAX": {
+      "tier": "error",
+      "note": ""
+    },
+    "distort.cyclefilter/freqlo/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distort.cyclefilter/freqhi/OVER_WIDE_MIN": {
+      "tier": "error",
+      "note": ""
+    },
+    "distort.cyclefilter/freqhi/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "blur.blur/windows/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "blur.avrg/neighbours/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distort.omit/b/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "blur.suppress/partials/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distort.repeat/multiplier/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distort.reform/exag/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distort.reform/exag/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distort.fractal/scaling/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distort.fractal/loudness/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distort.envel/cyclecnt/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "mchanpan.spread/chans/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "mchanpan.spread/centre/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "hilite.trace/partials/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "focus.exag/exag/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.fixed/bwidth/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.fixed/boost/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.fixed/boost/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.fixed/freq/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.fixed/freq/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.bandpass/freq/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.bandpass/freq/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.bandpass/gain/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.notch/freq/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.notch/freq/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.notch/gain/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.resonlo/freq/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.resonlo/freq/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.resonlo/gain/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "stretch.spectrum/divide/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "stretch.spectrum/divide/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "stretch.spectrum/stretch/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.resonhi/freq/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.resonhi/freq/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.resonhi/gain/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.phasing/gain/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.phasing/delay/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.sweeping/gain/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.sweeping/lofrq/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.sweeping/hifrq/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.sweeping/hifrq/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.sweeping/rate/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.sweeping/rate/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "envel.dovetail/infade/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "envel.dovetail/outfade/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "modify.revecho/delay/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "modify.revecho/feedback/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "modify.revecho/feedback/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "modify.revecho/tail/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "envel.curtail/start/OVER_WIDE_MAX": {
+      "tier": "error",
+      "note": ""
+    },
+    "envel.curtail/start/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "envel.curtail/dur/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "envel.scaled/start/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "envel.scaled/end/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "flatten.flatten/elementsize/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "flatten.flatten/shoulder/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "grain.omit/outof/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "spike.spike/peak/OVER_WIDE_MAX": {
+      "tier": "error",
+      "note": ""
+    },
+    "reverb.reverb/chans/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "reverb.reverb/rvbtime/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "reverb.reverb/lpfreq/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "reverb.reverb/trtime/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "reverb.reverb/trtime/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "reverb.room/chans/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "reverb.room/absorb/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "reverb.room/absorb/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "reverb.room/lpfreq/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "reverb.room/trtime/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.iterated/root/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.iterated/root/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.iterated/q/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.iterated/delay/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.iterated/delay/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.iterated/dur/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "blur.shuffle/grpsize/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "modify.shudder/start/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "modify.shudder/minwidth/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "modify.shudder/maxwidth/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "blur.weave/fwd/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "hilite.splow/freq/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "hilite.splow/freq/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "hilite.splow/q/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "hilite.sphigh/freq/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "hilite.sphigh/freq/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "hilite.sphigh/q/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "hilite.bltr/blurring/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "hilite.bltr/tracing/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "hilite.pluck/gain/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "hilite.pluck/gain/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "focus.step/step/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "focus.step/step/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "hilite.spband/freqlo/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "hilite.spband/freqlo/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "hilite.spband/freqhi/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "hilite.spband/freqhi/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "hilite.spband/q/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "hilite.spnotch/freqlo/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "hilite.spnotch/freqlo/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "hilite.spnotch/freqhi/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "hilite.spnotch/freqhi/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "hilite.spnotch/q/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "focus.fold/lofrq/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "focus.fold/lofrq/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "focus.fold/hifrq/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "focus.fold/hifrq/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "focus.freeze/time/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "focus.freeze/time/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "focus.accu/decay/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "focus.accu/glis/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "focus.accu/glis/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "extend.loop/cnt/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "extend.loop/len/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "hilite.band/split/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "hilite.band/split/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "hilite.band/loamp/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "hilite.band/loamp/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "hilite.band/hiamp/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "hilite.band/hiamp/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "extend.doublets/segdur/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "extend.doublets/segdur/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "extend.doublets/repets/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "focus.focus/bands/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "focus.focus/bands/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "focus.focus/bw/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "extend.repetitions/count/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "extend.repetitions/count/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "extend.repetitions/gap/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "extend.baktobak/join/OVER_WIDE_MIN": {
+      "tier": "error",
+      "note": ""
+    },
+    "extend.baktobak/join/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "extend.baktobak/splice/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "retime.speed/factor/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "retime.speed/minsil/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "focus.hold/time/OVER_WIDE_MAX": {
+      "tier": "error",
+      "note": ""
+    },
+    "repeater.bounce/seg/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "repeater.bounce/repcnt/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "repeater.bounce/delay/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "repeater.bounce/delay/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "repeater.bounce/accel/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "repeater.bounce/warp/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "repeater.bounce/warp/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "repeater.bounce/fade/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "repeater.bounce/fade/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "repitch.transpose/semitones/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "repitch.transpose/semitones/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "extend.drunk/locus/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "extend.drunk/ambitus/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "extend.drunk/step/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "extend.drunk/clock/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "pitch.transp/split/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "pitch.transp/split/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "pitch.transp/semitones/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "pitch.transp/semitones/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "pitch.pick/fundamental/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "pitch.pick/fundamental/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "pitch.tune/midi/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "pitch.tune/midi/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "strange.shift/frqshift/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "strange.shift/frqshift/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "pitch.chord/v1/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "pitch.chord/v1/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "pitch.chord/v2/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "pitch.chord/v2/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "pitch.chord/v3/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "pitch.chord/v3/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "strange.waver/vibfrq/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "strange.waver/vibfrq/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "strange.waver/stretch/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "strange.waver/botfrq/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "strange.waver/botfrq/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "strange.glis/glisrate/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "strange.glis/glisrate/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "glisten.glisten/grpdiv/RANGE_HOLE": {
+      "tier": "warn",
+      "note": ""
+    },
+    "combine.interleave/leafsize/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "submix.merge/stagger/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "submix.merge/skew/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "morph.morph/dur/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "morph.morph/expa/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "morph.morph/expf/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "grain.repitch/semitones/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "grain.repitch/semitones/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distort.harmonic/h2/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distort.harmonic/h3/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distort.harmonic/h4/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "grain.align/gate1/OVER_WIDE_MAX": {
+      "tier": "error",
+      "note": ""
+    },
+    "grain.align/gate1/CONTENT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "distort.elongate/multiplier/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distort.elongate/cyclecnt/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.bank/q/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.bank/lof/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.bank/lof/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.bank/hif/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "filter.bank/hif/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "newtex.drunk/density/OVER_WIDE_MIN": {
+      "tier": "error",
+      "note": ""
+    },
+    "newtex.drunk/step/OVER_WIDE_MAX": {
+      "tier": "error",
+      "note": ""
+    },
+    "psow.dupl/repeats/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "psow.dupl/segcnt/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "psow.dupl/pitch/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "psow.dupl/pitch/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "psow.stretch/stretch/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "psow.stretch/segcnt/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "psow.stretch/pitch/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "psow.stretch/pitch/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "waveform.make/time/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "waveform.make/dur/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "waveform.halfwaves/time/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "waveform.halfwaves/cnt/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "psow.sustain/start/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "psow.sustain/end/OVER_WIDE_MIN": {
+      "tier": "error",
+      "note": ""
+    },
+    "psow.sustain/end/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "psow.sustain/dur/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "psow.sustain/dur/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "psow.sustain/vibdepth/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "psow.sustain/nudge/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "psow.sustain/nudge/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "waveform.sinemix/time/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "waveform.sinemix/dur/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "specfnu.narrow/narrow/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "pulser.pulses/decay/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "motor.motor/freq/OVER_WIDE_MIN": {
+      "tier": "error",
+      "note": ""
+    },
+    "motor.motor/pulse/OVER_WIDE_MAX": {
+      "tier": "error",
+      "note": ""
+    },
+    "motor.motor/pratio/OVER_WIDE_MIN": {
+      "tier": "error",
+      "note": ""
+    },
+    "phasor.phasor/phasfrq/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "phasor.phasor/phasfrq/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "phasor.phasor/chans/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "sfecho.echo/delay/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "sfecho.echo/delay/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "sfecho.echo/atten/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "sfecho.echo/atten/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "sfecho.echo/dur/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "sfecho.echo/dur/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "bounce.bounce/count/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "bounce.bounce/count/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "bounce.bounce/startgap/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "bounce.bounce/shorten/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "bounce.bounce/ewarp/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "bounce.bounce/ewarp/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "splinter.into/target/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "splinter.into/wcnt/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "splinter.into/wcnt/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "splinter.into/shrcnt/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "splinter.into/ocnt/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "splinter.outof/target/OVER_WIDE_MIN": {
+      "tier": "error",
+      "note": ""
+    },
+    "splinter.outof/target/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "splinter.outof/wcnt/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "splinter.outof/wcnt/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "splinter.outof/shrcnt/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "splinter.outof/ocnt/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "dvdwind.dvdwind/contraction/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "dvdwind.dvdwind/clipsize/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "quirk.power/powfac/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "shrink.shrink/shrinkage/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "shrink.shrink/shrinkage/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "shrink.shrink/gap/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "shrink.shrink/gap/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "shrink.shrink/contract/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "shrink.shrink/dur/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "shrink.shrink/dur/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "shrink.shrink/splice/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distortt.repeat/gpcnt/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distortt.repeat/offset/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distortt.repeat/offset/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distortt.repeat/dur/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distrep.stretch/multiplier/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distrep.stretch/cyclecnt/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distrep.stretch/splicelen/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distrep.stretch/splicelen/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distmore.segszig/repets/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distmore.segszig/shrinkto/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "frfractal.fractal/layers/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "frfractal.fractal/splicelen/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "superaccu.superaccu/glis/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "superaccu.superaccu/glis/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "envnu.expdecay/starttime/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "envnu.expdecay/endtime/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "envnu.expdecay/endtime/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "envnu.peakchop/wsize/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "envnu.peakchop/wsize/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "envnu.peakchop/pkwidth/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "envnu.peakchop/pkwidth/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "envnu.peakchop/risetime/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "envnu.peakchop/tempo/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "envnu.peakchop/tempo/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "envnu.peakchop/gain/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "madrid.syncopate/dur/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "specfold.fold/stt/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "specfold.fold/len/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "specfold.fold/cnt/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "specnu.squeeze/centrefrq/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "specnu.squeeze/centrefrq/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "specnu.squeeze/squeeze/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "specnu.remove/rangetop/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "specnu.remove/rangetop/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "specnu.remove/atten/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "hover2.hover2/frq/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "hover2.hover2/frq/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "hover2.hover2/loc/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "hover2.hover2/dur/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "envspeak.repeat/wsize/OVER_WIDE_MAX": {
+      "tier": "error",
+      "note": ""
+    },
+    "envspeak.repeat/wsize/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "envspeak.repeat/splice/CONTENT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "envspeak.repeat/offset/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "envspeak.repeat/repet/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "envspeak.repeat/repet/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "strans.accel/accel/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "strans.accel/goaltime/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "strans.accel/starttime/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "grainex.extend/wsiz/OVER_WIDE_MAX": {
+      "tier": "error",
+      "note": ""
+    },
+    "grainex.extend/trof/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "grainex.extend/stt/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "grainex.extend/end/OVER_WIDE_MIN": {
+      "tier": "error",
+      "note": ""
+    },
+    "grainex.extend/end/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "envspeak.shuffle/wsize/OVER_WIDE_MAX": {
+      "tier": "error",
+      "note": ""
+    },
+    "envspeak.shuffle/wsize/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "envspeak.shuffle/splice/CONTENT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "envspeak.shuffle/seed/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "strans.vibrato/vibfrq/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "strans.vibrato/vibfrq/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "strans.vibrato/vibdepth/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "strans.vibrato/vibdepth/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "phase.stereo/transfer/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "phase.stereo/transfer/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "verges.verges/spacing/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "verges.verges/spacing/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "verges.verges/transp/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "verges.verges/transp/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "verges.verges/dur/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "verges.verges/dur/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distmark.interp/marks/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distmark.interp/marks/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distmark.interp/spacing/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distmark.interp/spacing/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distmark.interp/unitlen/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distmark.interp/unitlen/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "distmark.interp/stretch/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "ceracu.cycles/cycle1/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "ceracu.cycles/cycle2/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "ceracu.cycles/cycle2/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "ceracu.cycles/mincycdur/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "ceracu.cycles/chans/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "ceracu.cycles/outdur/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "ceracu.cycles/echo/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "ceracu.cycles/echshift/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "ceracu.cycles/echshift/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "fracture.fracture/pulse/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "tesselate.tesselate/chans/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "tesselate.tesselate/cycledur/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "tesselate.tesselate/cycledur/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "tesselate.tesselate/outdur/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "tesselate.tesselate/repeats/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "flutter.flutter/freq/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "flutter.flutter/freq/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "flutter.flutter/depth/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "flutter.flutter/depth/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "flutter.flutter/gain/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "flutter.flutter/gain/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "fractal.wave/dur/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "fractal.wave/dur/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "fractal.wave/maxfrac/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "tunevary.chord/pitch1/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "tunevary.chord/pitch1/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "tunevary.chord/pitch2/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "tunevary.chord/pitch2/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "tunevary.chord/pitch3/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "tunevary.chord/pitch3/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "suppress.partials/lofrq/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "suppress.partials/lofrq/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "suppress.partials/hifrq/OVER_WIDE_MIN": {
+      "tier": "error",
+      "note": ""
+    },
+    "suppress.partials/hifrq/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "suppress.partials/chancnt/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "tweet.tweet/pitch/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "tweet.tweet/pitch/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "tweet.noise/pitch/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "tweet.noise/pitch/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "subtract.subtract/chan/OVER_WIDE_MAX": {
+      "tier": "error",
+      "note": ""
+    },
+    "subtract.subtract/chan/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "newmorph.morph/stagger/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "newmorph.morph/startmorph/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "newmorph.morph/endmorph/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "newmorph.morph/exponent/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "iterfof.line/outdur/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "shifter.cycles/dur/OVER_WIDE_MIN": {
+      "tier": "error",
+      "note": ""
+    },
+    "specsphinx.multiply/bias/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "specsphinx.multiply/bias/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "specsphinx.multiply/gain/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "newmorph.tune/stagger/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "newmorph.tune/startmorph/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "newmorph.tune/endmorph/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "speclean.clean/persist/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "envcut.envelope/slicelen/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "cantor.holesfixed/holedur/OVER_WIDE_MIN": {
+      "tier": "error",
+      "note": ""
+    },
+    "cantor.holesfixed/holedur/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "cantor.holesfixed/splice/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "spectwin.hybrid/step/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "spectwin.hybrid/dec/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "isolate.threshold/dbon/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "isolate.threshold/dbon/CONTENT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "isolate.threshold/dboff/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "isolate.slices/splice/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "panorama.spatial/speakers/OVER_WIDE_MIN": {
+      "tier": "error",
+      "note": ""
+    },
+    "panorama.spatial/speakers/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "specross.partials/tuning/CONTENT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "specross.partials/minwin/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "specross.partials/minwin/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "specross.partials/signois/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "specross.partials/signois/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "specross.partials/lo/CONTENT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "specross.partials/hi/CONTENT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "specross.partials/thresh/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "specross.partials/level/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "crumble.crumble/start/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "crumble.crumble/dur1/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "crumble.crumble/dur2/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "wave/freq/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "wave/freq/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "wave/dur/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "wave/amp/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "silence/dur/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "crumble.crumble16/start/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "crumble.crumble16/dur1/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "crumble.crumble16/dur2/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "crumble.crumble16/dur3/INPUT_DEPENDENT": {
+      "tier": "warn",
+      "note": ""
+    },
+    "tangent.tangent/dur/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "tangent.tangent/dur/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "tangent.tangent/steps/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "tangent.tangent/decay/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "tangent.tangent/decay/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "impulse/dur/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "impulse/dur/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "impulse/pitch/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "impulse/pitch/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "impulse/pkcnt/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "impulse/level/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "multiosc/dur/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "multiosc/frq1/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "multiosc/frq1/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "multiosc/frq2/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "addsynth/dur/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "addsynth/frq/OVER_WIDE_MAX": {
+      "tier": "error",
+      "note": ""
+    },
+    "fractal/dur/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "fractal/frq/OVER_WIDE_MAX": {
+      "tier": "error",
+      "note": ""
+    },
+    "fractal/atk/OVER_WIDE_MAX": {
+      "tier": "error",
+      "note": ""
+    },
+    "fractal/atk/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "fractal/dec/OVER_WIDE_MAX": {
+      "tier": "error",
+      "note": ""
+    },
+    "fractal/dec/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "fractal/atoh/OVER_WIDE_MIN": {
+      "tier": "error",
+      "note": ""
+    },
+    "fractal/gtow/OVER_WIDE_MIN": {
+      "tier": "error",
+      "note": ""
+    },
+    "transit.transit/mode/OVER_WIDE_MAX": {
+      "tier": "error",
+      "note": ""
+    },
+    "transit.transit/dur/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "transit.transit/dur/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "transit.transit/steps/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "transit.transit/maxangle/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "transit.transit/decay/OVER_NARROW_MIN": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "transit.transit/decay/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "addsynth_packets/dur/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "addsynth_packets/frq/OVER_WIDE_MAX": {
+      "tier": "error",
+      "note": ""
+    },
+    "duffing/dur/OVER_NARROW_MAX": {
+      "tier": "advisory",
+      "note": ""
+    },
+    "multisynth/mm/RANGE_HOLE": {
+      "tier": "warn",
+      "note": ""
+    },
+    "strands/twist/OVER_WIDE_MIN": {
+      "tier": "error",
+      "note": ""
+    },
+    "iterline.iterline/-/PROBE_ERROR": {
+      "tier": "error",
+      "note": ""
+    },
+    "newdelay.newdelay/-/PROBE_ERROR": {
+      "tier": "error",
+      "note": ""
+    },
+    "extend.zigzag/-/PROBE_ERROR": {
+      "tier": "error",
+      "note": ""
+    },
+    "extend.freeze/-/PROBE_ERROR": {
+      "tier": "error",
+      "note": ""
+    }
+  }
+}

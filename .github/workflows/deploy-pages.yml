@@ -1,0 +1,46 @@
+name: Deploy to GitHub Pages
+
+# Publishes the static app to GitHub Pages. The WebAssembly engine is served
+# from the committed ./vendor snapshot (see scripts/vendor-engine.mjs), so this
+# needs no wasm toolchain, npm install, or access to the private sibling repos.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Least privilege for the Pages deployment.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time; let a newer push supersede an in-flight run.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Assemble static site (app + vendored engine)
+        run: node scripts/build-site.mjs
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/pages
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

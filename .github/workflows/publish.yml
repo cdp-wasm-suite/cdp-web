@@ -1,0 +1,41 @@
+# Publish @cdp-wasm-suite/cdp-web (the self-contained static bundle) to GitHub
+# Packages. The VST plugin (cdp-plugin) and Ableton Live extension
+# (cdp-extension) consume this package instead of vendoring built assets.
+#
+# Runs on published releases, or manually via workflow_dispatch. The bundle is
+# built from the committed ./vendor engine snapshot (see vendor-engine.mjs), so
+# no npm install, wasm toolchain, or access to the private sibling repos is
+# needed. Bump "version" in package.json before publishing — GitHub Packages
+# rejects re-publishing an existing version.
+name: publish
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    # The package is @cdp-wasm-suite-scoped; GITHUB_TOKEN can only publish it
+    # from within the org, so skip on the private dev mirror.
+    if: github.repository_owner == 'cdp-wasm-suite'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://npm.pkg.github.com
+
+      - name: Build the self-contained bundle
+        run: node scripts/bundle.mjs
+
+      - name: Publish dist/bundle
+        run: npm publish dist/bundle
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

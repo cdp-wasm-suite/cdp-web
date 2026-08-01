@@ -1,0 +1,17 @@
+{
+  "name": "CDP for Web",
+  "short_name": "CDP",
+  "description": "The Composers Desktop Project's sound-transformation programs as a GEM-desktop modular patcher, running entirely in the browser.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#00aa00",
+  "theme_color": "#ffffff",
+  "categories": ["music", "productivity"],
+  "icons": [
+    { "src": "./img/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./img/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./img/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

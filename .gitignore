@@ -1,0 +1,8 @@
+node_modules/
+/recipes/
+/dist/
+.DS_Store
+*.log
+fonts/__pycache__
+/.cache/
+/param-ranges-report.json

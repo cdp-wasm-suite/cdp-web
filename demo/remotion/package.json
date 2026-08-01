@@ -1,0 +1,19 @@
+{
+  "name": "cdp-web-demo-remotion",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Stage B compositor. Reads a manifest.json emitted by the Playwright rig and renders frames + extracted WAVs to video. Kept out of the app's package.json: Remotion is source-available, not AGPL-compatible for redistribution.",
+  "scripts": {
+    "studio": "remotion studio",
+    "render": "remotion render"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.410",
+    "remotion": "4.0.410",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "allowScripts": {
+    "esbuild@0.25.0": true
+  }
+}
