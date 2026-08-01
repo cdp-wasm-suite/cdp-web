@@ -35,7 +35,9 @@ jobs:
       - name: Build the self-contained bundle
         run: node scripts/bundle.mjs
 
+      # The leading ./ matters: npm reads a bare `dist/bundle` as the GitHub
+      # shorthand owner/repo and tries to clone it over SSH.
       - name: Publish dist/bundle
-        run: npm publish dist/bundle
+        run: npm publish ./dist/bundle
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
