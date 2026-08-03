@@ -66,37 +66,36 @@ function closeAndSend(resultObj) {
 }
 
 // ---- native drag-and-drop of the rendered WAV -------------------------------
-// A browser can drag a file out of the page (the HTML5 DownloadURL flavour), but
-// that can't cross from a plugin's WebView into the host DAW. Inside the native
-// plugin (IPlugSendMsg present) the Output window's "Drag me" button instead asks
-// the native side to start a real OS drag-and-drop.
-//
-// This is only a trigger — no audio is re-sent. The plugin already holds the
-// rendered sample: every Run forwards the result to the host DSP sampler as
-// planar PCM (see player.js forwardBufferToPlugin → 'SAMFUI'). So on receipt of
-// 'SDGFUI' the plugin writes its current sample to a temp WAV (named by the
-// message `data`) and begins a native drag session for that file —
-// NSDraggingSession on macOS, DoDragDrop on Windows. It fires on the button's
-// pointerdown so the drag can begin together with the gesture.
-//
-// Wire-up (cdp-plugin's OnMessageFromUI): match msg == "SDGFUI", read the filename
-// from the message data, and kick off the platform drag.
+// An embedded browser's HTML drag is not a reliable cross-process file drag, so
+// native plugin editors advertise CDPNativeDragOut and own that part of the
+// gesture. The web UI asks the host to materialise the sampler as a temp WAV
+// (PDGFUI), then signals the pointer-down (BDGFUI). AppKit starts its session from
+// the corresponding native movement; Windows enters its OLE drag loop after the
+// system drag threshold. Option-drag remains the in-canvas Output -> Source path.
 
 // True when a native host that can perform an OS drag-out is present.
 export function hostSupportsDragOut() {
-  return typeof IPlugSendMsg === 'function';
+  return typeof IPlugSendMsg === 'function' && window.CDPNativeDragOut === true;
 }
 
-// Ask the native plugin host to begin an OS drag of the last rendered sample.
-// Returns true if a native host consumed it, false in a plain browser (the caller
-// then falls back to the HTML5 DownloadURL drag).
-export function beginNativeDragOut(filename = 'cdp-output.wav') {
+export function prepareNativeDragOut(filename = 'cdp-output.wav') {
   if (typeof IPlugSendMsg !== 'function') return false;
   try {
-    IPlugSendMsg({ msg: 'SDGFUI', data: filename });
+    IPlugSendMsg({ msg: 'PDGFUI', data: filename });
     return true;
   } catch (e) {
-    console.error('[host-bridge] native drag-out failed:', e);
+    console.error('[host-bridge] native drag preparation failed:', e);
+    return false;
+  }
+}
+
+export function beginNativeDragOut() {
+  if (typeof IPlugSendMsg !== 'function') return false;
+  try {
+    IPlugSendMsg({ msg: 'BDGFUI' });
+    return true;
+  } catch (e) {
+    console.error('[host-bridge] native drag start failed:', e);
     return false;
   }
 }

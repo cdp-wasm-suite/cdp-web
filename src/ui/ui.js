@@ -613,6 +613,35 @@ export function drawWave(cvs, wav) {
   }
   ctx.stroke();
 }
+
+// Draw a compact waveform envelope restored from plugin state. `cache.peaksB64`
+// contains interleaved little-endian int16 min/max pairs, generated once from the
+// original WAV. This keeps large intermediate renders visually restorable without
+// embedding every full audio file in the DAW project.
+export function drawWaveCache(cvs, cache) {
+  if (!cvs || !cache || cache.v !== 1 || !cache.peaksB64 || !cache.bins) return;
+  let bin;
+  try { bin = atob(cache.peaksB64); } catch { return; }
+  if (bin.length < cache.bins * 4) return;
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  const view = new DataView(bytes.buffer);
+  const dpr = devicePixelRatio || 1;
+  const { ink, paper } = themeColors();
+  cvs.width = cvs.clientWidth * dpr; cvs.height = cvs.clientHeight * dpr;
+  const ctx = cvs.getContext('2d'), w = cvs.width, h = cvs.height, mid = h / 2;
+  ctx.fillStyle = paper; ctx.fillRect(0, 0, w, h);
+  drawBeatGrid(ctx, w, h, dpr, Number(cache.duration) || 0, ink);
+  ctx.fillStyle = ink; ctx.fillRect(0, Math.round(mid), w, 1);
+  ctx.strokeStyle = ink; ctx.lineWidth = dpr; ctx.beginPath();
+  for (let x = 0; x < w; x++) {
+    const i = Math.min(cache.bins - 1, Math.floor(x * cache.bins / Math.max(1, w)));
+    const min = view.getInt16(i * 4, true) / 32767;
+    const max = view.getInt16(i * 4 + 2, true) / 32767;
+    ctx.moveTo(x, mid + min * mid); ctx.lineTo(x, mid + max * mid);
+  }
+  ctx.stroke();
+}
 // Faint vertical gridlines at every beat (accented per bar, assuming 4/4) using
 // the global tempo — skipped when beats would pack tighter than ~5px.
 function drawBeatGrid(ctx, w, h, dpr, dur, ink) {

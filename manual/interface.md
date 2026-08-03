@@ -129,10 +129,7 @@ An **Output** node is where a chain is rendered to a finished sound. It has:
   successful Run).
 - **↓ Save** — save the rendered WAV. In Chrome/Edge an OS save dialog lets
   you pick the location; other browsers download to the Downloads folder.
-- **⤓ Drag me** — drag the rendered sound out to your desktop/DAW, **or** drop
-  it back onto the desk to make a new **Source** node from it. On a touchscreen
-  drag it with your finger (dropping out of the page isn't possible there — use
-  ↓ Save); a plain tap drops the new Source in the middle of the view.
+- **⠿** — the drag handle in the title bar (see below).
 
 Whenever you change anything upstream — a cable, a parameter, a source — the
 render is now **out of date**, so the Output window **shades itself grey** and a
@@ -140,6 +137,70 @@ render is now **out of date**, so the Output window **shades itself grey** and a
 (it plays the last render) but the grey is your cue that what you'd hear no
 longer matches the patch. Press **Run** (or **Space**) to bring it up to date.
 Turn on **Options ▸ Auto Render** to re-render automatically as you work.
+
+## Dragging sounds out — the ⠿ handle
+
+Every window that holds a sound carries a **⠿** handle in its title bar, next to
+the **?** and **▾** buttons. Drag it to take that sound somewhere:
+
+- **Onto the desk** → a new **Source** node lands where you let go, holding that
+  sound. This is how you freeze a stage of a chain and build on it, or branch a
+  patch without re-rendering the same thing twice.
+- **Out of the window** → a `.wav` file, dropped on your desktop, Finder or a
+  DAW track.
+
+The handle is greyed out until the node actually has a sound. **Source**,
+**Generator** and **Faust** nodes have one as soon as they hold audio; effect,
+**Raw process**, **PVOC Resynthesise** and **Pick** nodes get theirs after a
+**Run** — the runner computes every stage on the way to the Output, and each
+node keeps its own result, so *any* point of a chain can be dragged out, not
+just the end.
+
+On a touchscreen, drag the handle with your finger — a small tag follows it, and
+releasing over the desk drops the new Source there. A plain tap (no movement)
+drops it in the middle of the view. Dropping *out* of the page isn't possible on
+a touchscreen; use **↓ Save** instead.
+
+Nodes that produce a **bank** — multi-output effects like **Partition** or
+**Isolate**, **Split channels**, and **Gather** — have no single sound to hang
+off the title bar. They list their files in the window body instead once they've
+run, and each row carries its own **▶**, **↓** and **⠿**, so an individual file
+can be auditioned, saved or dragged on its own. The **Output** node does the same
+when a bank is cabled into it.
+
+## Stored audio — what survives a reload
+
+A **Source** is the one thing in a patch that can't be recomputed: a generator
+regenerates from its parameters and an **Output** re-renders from the chain, but
+a file you chose — or a sound you dragged out of a node — exists nowhere else.
+So in the browser, Source audio is kept in a **local store**, and the patch
+records only which sound to fetch. Close the tab and come back and your Sources
+still have their sound.
+
+Two things follow from that:
+
+- **It's tied to this browser on this machine.** A patch file or a share link
+  carries no audio, so opening one elsewhere gives you Sources labelled
+  **"name · not stored here"** — you can see which file each one wants, but you
+  have to reopen it. A **URL…** source is the one kind that travels with its
+  sound.
+- **Identical sounds are stored once.** The store is keyed by the audio itself,
+  so dragging a node's **⠿** to make three Sources from one sound costs one copy,
+  not three.
+
+The sound's waveform is kept with it rather than in the patch, so the two always
+agree: the patch stays tiny (a share link doesn't grow by ~3 KB per Source), and
+clearing a sound never leaves a picture of audio that has gone.
+
+**Options ▸ Stored audio…** shows what's there: every sound with its waveform,
+its size and whether the open patch is using it, plus **▶** to hear it, **↓** to
+save it to disk and **✕** to remove it. **Clear all** empties the store. Removing
+a sound the open patch relies on asks first — that Source will reopen with only
+its name. If the browser refuses to store anything (private windows often do),
+the app says so in the Log and keeps working; the audio just lasts the session.
+
+In the **plugin** none of this applies: source audio is saved into the DAW's own
+project state, so it travels with the project.
 
 ## The minimap
 

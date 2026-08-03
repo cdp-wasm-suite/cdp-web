@@ -5,6 +5,88 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-08-03
+
+**Any sound in a patch can now be dragged out of it.** Every window that holds
+audio carries a **⠿** handle: drag it onto the desk for a new Source, or out of
+the window for a `.wav` on your desktop or a DAW track. Source audio also stops
+evaporating on reload — it lives in a content-addressed browser store that the
+patch merely points at.
+
+### Added
+- **The ⠿ drag handle, on every node that holds a sound.** It sits in the title
+  bar next to **?** and the shade box, greyed out until there is something to
+  drag. **Source**, **Generator** and **Faust** have one as soon as they hold
+  audio; effect, **Raw process**, **PVOC Resynthesise** and **Pick** nodes get
+  theirs after a **Run**, because those stages now keep the audio the runner
+  computed on the way to the Output — so any point of a chain can be pulled
+  out, not just the end (held in memory only, never serialized). Touch drags
+  work as before: a tag follows the finger, and a plain tap drops the new
+  Source in the middle of the view.
+- **Bank file lists wherever a bank is produced.** Multi-output effects
+  (**Partition**, **Isolate**, **Split channels**) and **Gather** list their
+  files in the window body once they've run, each row with its own **▶**, **↓**
+  and **⠿**, so an individual file can be auditioned, saved or dragged on its
+  own — the same list the Output already showed, now shared.
+- **Stored audio.** A Source is the one thing in a patch that can't be
+  recomputed, and a sound dragged off a mid-chain node exists nowhere else, so
+  the bytes go to a content-addressed IndexedDB store (`src/core/audio-store.js`)
+  and the patch carries only the key. Identical sounds cost one copy, which is
+  the common case once dragging shares one array between nodes. The waveform
+  thumbnail moves into that record too: the two then share a lifetime, and a
+  share link stops growing by ~3 KB per Source for peaks that barely compress.
+  A patch keeps reading the old inline `wave`, and native hosts still embed
+  audio in their own state. Opening a patch elsewhere gives Sources labelled
+  **"name · not stored here"**.
+- **Options ▸ Stored audio…** inspects the store: every sound with its
+  waveform, size and whether the open patch uses it, plus play, save, remove
+  and **Clear all**. Removing something in use asks first. If the browser
+  refuses to store anything (private windows often do), the app says so in the
+  Log and falls back to session-only audio.
+- **Patch view hints.** An imported or programmatic patch may carry
+  `view: { arrange, fit }` to ask for auto-arrange and zoom-to-fit on load;
+  explicit `loadPatch` options still win, so recipes, undo/redo and host
+  integrations keep choosing their own behaviour. The hints are deliberately
+  not serialized — once opened, the arranged coordinates are ordinary patch
+  state. `window.__patch` also exposes `arrange` and `zoomToFit`.
+
+### Changed
+- Engine updated to cdp-wasm 0.4.1 (documentation only upstream; `src/` and
+  `wasm/` are byte-identical to the vendored 0.3.2 — the only change under
+  `vendor/` is the package metadata). It carries the engine-side half of the
+  patch view hints: `build-cdp-web-patches` now emits `view` on generated
+  patches, and Help ▸ Release notes shows the engine's notes for it.
+- The Output's **⤓ Drag me** button is gone; the ⠿ handle replaces it
+  everywhere. Its four inline gesture paths (native AppKit drag, Option-drag,
+  touch pointer capture, HTML5 `DownloadURL`) are now shared code rather than
+  hard-wired to the Output's result.
+- **In the plugin**, the plain mouse drag belongs to the OS, so **Option-drag**
+  the handle for the in-patch gesture. Whatever is being dragged is also what
+  loads the sampler, so dragging a bank file or a mid-chain node swaps the
+  playable sample over to it.
+- **The native drag-out bridge is a new contract.** The single `SDGFUI`
+  message, which asked the host to drag the Output's rendered sample, is
+  replaced by a two-step `PDGFUI` (materialise this sound
+  as a temp WAV) then `BDGFUI` (pointer is down — start the OS drag session),
+  because any node's sound can now be the one being dragged. A host advertises
+  support by setting `window.CDPNativeDragOut = true`; without it cdp-web keeps
+  the HTML5 drag rather than beginning a gesture nothing will finish, so an
+  un-updated plugin build degrades instead of breaking. cdp-plugin implements
+  the pair on both macOS and Windows.
+- `npm test` now also runs `scripts/validate-patch-view.mjs`.
+
+### Fixed
+- **A fresh plugin WebView could save a default patch over the real one.**
+  Hosts now answer with `CDPNoGraph()` when they have no stored graph, and the
+  UI waits for that explicit yes-or-no before creating its default patch.
+  Partial state is suppressed while a graph is being reconstructed, and host
+  snapshots publish immediately.
+- **Hosted previews survive a reload.** Source, Generator, Faust and Output
+  waveforms are persisted as fixed-size envelopes (small WAVs embedded where
+  practical) instead of vanishing, and cached Faust audio is no longer
+  regenerated when an editor reopens — so reopening one doesn't rerun the
+  processing graph.
+
 ## [0.3.1] - 2026-08-01
 
 ### Changed
@@ -266,6 +348,7 @@ generators, effect and PVOC nodes, breakpoint envelopes, Faust devices, the
 sampler keyboard, recipes, and the browsable manual. Also serves as the shared
 UI for the VST plugin and Ableton Live extension.
 
+[0.4.0]: https://github.com/cdp-wasm-suite/cdp-web/releases/tag/v0.4.0
 [0.3.1]: https://github.com/cdp-wasm-suite/cdp-web/releases/tag/v0.3.1
 [0.3.0]: https://github.com/cdp-wasm-suite/cdp-web/releases/tag/v0.3.0
 [0.1.0]: https://github.com/cdp-wasm-suite/cdp-web/releases/tag/v0.1.0

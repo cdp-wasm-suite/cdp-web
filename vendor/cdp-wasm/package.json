@@ -1,6 +1,6 @@
 {
   "name": "cdp-wasm",
-  "version": "0.3.2",
+  "version": "0.4.1",
   "description": "CDP (Composers Desktop Project) audio processing programs compiled to WebAssembly, for Node.js and the browser.",
   "type": "module",
   "main": "./src/index.js",
@@ -34,7 +34,7 @@
   "scripts": {
     "build:wasm": "bash scripts/build-wasm.sh",
     "prepack": "bash scripts/build-wasm.sh && node docs/tools/render-man.mjs",
-    "test": "node test/catalog.mjs && node test/aiff.mjs && node test/float-output.mjs && node test/envelope.mjs && node test/analysis.mjs && node test/externals.mjs && node test/scalar-fallback.mjs && node test/cli.mjs && node scripts/check-docs.mjs && node scripts/check-skill.mjs && node scripts/check-arg-order.mjs && node claude-plugin/skills/cdp-sound-design/scripts/smoke.mjs",
+    "test": "node test/catalog.mjs && node test/aiff.mjs && node test/float-output.mjs && node test/envelope.mjs && node test/analysis.mjs && node test/externals.mjs && node test/scalar-fallback.mjs && node test/cli.mjs && node test/patch-skill.mjs && node scripts/check-docs.mjs && node scripts/check-skill.mjs && node scripts/check-arg-order.mjs && node plugins/cdp-sound-design/skills/cdp-sound-design/scripts/smoke.mjs",
     "test:parity": "node test/parity.mjs",
     "typecheck": "npx -y --package typescript@5.7 tsc --project tsconfig.json",
     "bench": "node scripts/bench.mjs",

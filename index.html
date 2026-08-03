@@ -45,7 +45,12 @@
       // Host->UI node graph (the plugin's "document"). The host pushes the restored
       // graph as base64'd JSON via CDPLoadGraph; we cache it and hand it to the
       // patcher's handler once it registers (the patcher mounts after this script).
+      // CDPNoGraph is the equally important negative acknowledgement: a plugin with
+      // no native graph tells the UI to create its default patch. This handshake
+      // prevents a fresh WebView from briefly creating and saving a default graph
+      // over the real graph while it waits for host state.
       window.__lastGraph = window.__lastGraph || null;
+      window.__graphStateReady = false;
       window.__graphHandler = window.__graphHandler || null;
       if (typeof window.CDPLoadGraph !== 'function') {
         window.CDPLoadGraph = function (b64) {
@@ -54,12 +59,18 @@
           catch (e) { try { json = atob(b64); } catch (e2) { return; } }
           var data; try { data = JSON.parse(json); } catch (e) { return; }
           window.__lastGraph = data;
+          window.__graphStateReady = true;
           if (window.__graphHandler) window.__graphHandler(data);
         };
       }
+      window.CDPNoGraph = function () {
+        window.__lastGraph = null;
+        window.__graphStateReady = true;
+        if (window.__graphHandler) window.__graphHandler(null);
+      };
       window.registerGraphHandler = function (fn) {
         window.__graphHandler = fn;
-        if (window.__lastGraph) fn(window.__lastGraph);
+        if (window.__graphStateReady) fn(window.__lastGraph);
       };
     }
   </script>
@@ -217,7 +228,7 @@
       bottom: calc(var(--kbd-vis) + var(--logdock-vis) + var(--bottom-h) + var(--sb) + 14px);
       transition: bottom .28s ease;
       background: var(--paper); border: var(--frame); box-shadow: 4px 4px 0 var(--shadow); cursor: pointer; }
-    /* Follows the finger while dragging an Output's "⤓ Drag me" across the canvas.
+    /* Follows the finger while dragging a node's ⠿ handle across the canvas.
        Touch has no HTML5 drag image (no dragstart at all), so we draw our own. */
     .drag-ghost { position: fixed; z-index: 12000; pointer-events: none; transform: translate(-50%, -160%);
       padding: 3px 8px; background: var(--paper); color: var(--ink); border: var(--frame);
@@ -258,6 +269,20 @@
     .gwin-help { width: 18px; height: 18px; padding: 0; border: var(--frame); background: var(--paper);
                  line-height: 1; flex: none; cursor: pointer; font: 13px/1 var(--ui); }
     .gwin-help:active, .gwin-help.on { background: var(--ink); color: var(--paper); }
+    /* ⠿ drag handle: drag this node's rendered sound to the desk (→ new Source) or
+       out to the desktop/DAW. Same 18px chrome box as ? and ▾, but with a padded
+       hit area behind it — in the plugin this small target starts a real OS drag,
+       so it wants more room than a click target would. */
+    .gwin-drag { position: relative; width: 18px; height: 18px; padding: 0; border: var(--frame); background: var(--paper);
+                 line-height: 1; flex: none; cursor: grab; font: 13px/1 var(--ui); }
+    .gwin-drag::before { content: ''; position: absolute; inset: -5px; }   /* fatter grab area */
+    .gwin-drag:active { background: var(--ink); color: var(--paper); }
+    .gwin-drag:disabled { opacity: .35; cursor: default; }
+    .gwin-drag:disabled::before { content: none; }
+    /* in a bank row the handle sits between other buttons — no fat area to overlap them */
+    .gwin-drag.bank-drag::before { content: none; }
+    /* a stale render is still a real sound — draggable, just visibly out of date */
+    .gwin.stale .gwin-drag:not(:disabled) { opacity: .55; }
     .gwin-body canvas { height: 70px; margin: 6px 0; }
     .gwin-body canvas.pedit { height: 110px; margin: 4px 0; cursor: crosshair; touch-action: none; }
     .pftrack { position: relative; height: 22px; border: var(--frame); background: var(--paper); margin: 4px 0 0; cursor: copy; touch-action: none; }
@@ -462,6 +487,20 @@
     .gem-dialog-btns { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; padding: 14px 16px 16px; }
     .gem-dialog-btns button { padding: 5px 22px; margin: 0; }
     .gem-dialog-btns .ok { box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--line); }
+    /* ---- stored-audio inspector (Options ▸ Stored audio…) ---- */
+    /* Wider than an alert: these rows carry a file name, a size and three buttons. */
+    .gem-dialog.store-dialog[popover] { width: 620px; }
+    .store-list { max-height: min(52vh, 420px); overflow: auto; border: var(--frame); margin-top: 10px; }
+    .store-row { display: flex; gap: 8px; align-items: center; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+    .store-row:last-child { border-bottom: 0; }
+    .store-row button { margin: 0; padding: 1px 7px; }
+    .store-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+    /* the sound's own thumbnail, drawn from the envelope stored beside its audio */
+    .store-wave { flex: none; width: 120px; height: 22px; }
+    .store-size { flex: none; font-size: 13px; opacity: .7; font-variant-numeric: tabular-nums; }
+    /* audio the open patch is using — deleting it would empty a Source on reload */
+    .store-row.in-use .store-name::after { content: ' · in this patch'; opacity: .6; font-size: 12px; }
+    .store-total { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; font-size: 14px; }
 
     /* ---- pop-out waveform navigator (full-screen fixed overlay) ---- */
     /* Stops short of the transport bar rather than covering it, so the bottom

@@ -17,9 +17,15 @@ described here.
   playable from your DAW over MIDI (and from the on-screen
   [sampler keyboard](interface.md#the-sampler-keyboard)).
   Audio signal comes out of the plugin's output channels.
-- **"Drag me" is a real drag-out.** The Output's **⤓ Drag me** button starts a
-  genuine OS drag-and-drop of the rendered WAV, so you can drop it straight onto
-  a track in your DAW.
+- **⠿ is a real drag-out.** A window's
+  [**⠿** handle](interface.md#dragging-sounds-out--the--handle) starts a genuine
+  OS drag-and-drop of that sound, so you can drop it straight onto a track in
+  your DAW. Because the plain mouse drag belongs to the operating system there,
+  **Option-drag** the handle to do the in-patch gesture instead (drop it on the
+  desk to make a **Source**).
+- **Dragging loads the sampler.** The sound being dragged is what crosses to the
+  OS, so it becomes the plugin's playable sample — dragging a bank file or a
+  mid-chain node swaps the sampler over to it.
 
 ## Installing and loading
 

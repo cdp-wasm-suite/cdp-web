@@ -3,7 +3,7 @@
 // (ui.js), the execution engine (graph.js) and the cdp-wasm package.
 import {
   $, el, dropdown, openMenuAt, gemSelect, gemAlert, gemPrompt, initTooltips, initTouchGestures, numField, paramRow, paramGrid, fitParamGrid, makeEnvelopeEditor, parseBrk,
-  drawWave, wavDuration, log, setLogSink, ENVELOPE_PARAMS, axisFlags, makePartialsEditor, saveWavFile,
+  drawWave, drawWaveCache, wavDuration, log, setLogSink, ENVELOPE_PARAMS, axisFlags, makePartialsEditor, saveWavFile,
   canSaveFile, inEmbeddedHost, wavFileName,
 } from '../ui/ui.js';
 import { GraphRunner, validateConnection, byId, inEdge, inEdges, portKind, portAccepts, GENERATORS, genById, applyGenerator, envToBrk, envToPoints, layoutGraph } from './graph.js';
@@ -18,8 +18,10 @@ import { initTempo, getBpm, setBpm } from '../data/tempo.js';
 import { fuzzyMatch } from '../data/fuzzy.js';
 import { openManual } from '../ui/manual.js';
 import { openCodeEditor, refreshCodeEditor, setCodeEditorErrors, setCodeEditorWav, closeCodeEditor, codeEditorPreviewWav, isCodeEditorOpen, textEditButton } from '../ui/code-editor.js';
-import { hostSupportsDragOut, beginNativeDragOut } from './host-bridge.js';
+import { beginNativeDragOut, hostSupportsDragOut, prepareNativeDragOut } from './host-bridge.js';
+import { putWav, getWav, listWavs, removeWav, clearWavs, setStoreDiagnostics } from './audio-store.js';
 import { shareSupported, encodeShare, decodeShare, getShareParam, shareParamFromText, stripShareParam } from './share.js';
+import { resolvePatchView } from './patch-view.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -235,12 +237,15 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
   // growCanvas ends by calling updateMinimap, so the minimap stays covered.
   addEventListener('resize', growCanvas);
   const cablesSvg = $('cables');
-  // As a Run resolves each node, push its computed audio into that node's preview
-  // (currently generators) so upstream sounds appear even if never manually built.
+  // As a Run resolves each node, push its computed audio into that node's preview,
+  // so upstream sounds appear — and can be played and dragged out — even if the
+  // node was never built by hand.
   const runner = new GraphRunner(cdp, (id, res) => {
     if (!res) return;
     if (res.kind === 'bank') {
-      // Tell downstream nodes (e.g. a Pick's "item i of N" readout) what the
+      // Hand the bank back to the node that made it, so its files list themselves…
+      patch.nodes.get(id)?.setBankResult?.(res);
+      // …and tell downstream nodes (e.g. a Pick's "item i of N" readout) what the
       // bank cabled into them holds.
       for (const e of patch.edges) if (e.from.node === id) patch.nodes.get(e.to.node)?.setBankInfo?.(res);
       return;
@@ -257,13 +262,23 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
   let lastResultLabel = '';     // …and the label of the Output window that rendered it
   let programList = [], spectralSet = new Set();
   let history = [], histIndex = -1;  // serialized-state snapshots for undo / redo
+  // loadPatch reconstructs a graph in two phases (nodes now, cables next frame).
+  // Suppress persistence until the transaction is complete so plugin state never
+  // observes a half-restored graph. The serial prevents an older queued frame from
+  // ending a newer load transaction.
+  let applyingPatch = false, patchLoadSerial = 0;
   let clipboard = null, pasteCascade = 0;   // copied subgraph (in-memory; also mirrored to the system clipboard)
   const waveScopes = [];             // {cvs,getWav,live,snap} mini-scopes to recolour on theme change + animate
   // The code-editor modal's preview strip joins the pool too, so it gets the
   // moving playhead and theme/tempo redraws; its getter returns null whenever
   // the modal is closed, which parks the scope.
   waveScopes.push({ cvs: document.getElementById('codeEditorWave'), getWav: codeEditorPreviewWav });
-  const redrawScopes = () => { for (const s of waveScopes) if (s.cvs.isConnected) drawWave(s.cvs, s.getWav()); };
+  const redrawScope = (s) => {
+    const wav = s.getWav();
+    if (wav) drawWave(s.cvs, wav);
+    else if (s.getCache) drawWaveCache(s.cvs, s.getCache());
+  };
+  const redrawScopes = () => { for (const s of waveScopes) if (s.cvs.isConnected) redrawScope(s); };
   addEventListener('themechange', redrawScopes);
   addEventListener('themechange', () => updateMinimap());   // re-read --ink for the new theme
   addEventListener('tempochange', redrawScopes);   // refresh beat gridlines
@@ -274,7 +289,7 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
   // playback start (cheap blit + line per frame, no per-frame re-decode) and
   // restores it when its audio stops. One rAF loop covers every node.
   let phRaf = 0;
-  function restoreScope(s) { if (s.cvs.isConnected) drawWave(s.cvs, s.getWav()); s.live = false; s.snap = null; }
+  function restoreScope(s) { if (s.cvs.isConnected) redrawScope(s); s.live = false; s.snap = null; }
   function tickPlayheads() {
     phRaf = 0;
     const frac = player.progress();
@@ -314,31 +329,31 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
   // native WebView we run inside, vs. a plain browser tab.
   const isEmbedded = inEmbeddedHost;
   const inNativeHost = () => inPlugin() || isEmbedded();
-  // Plugin-only native OS drag of the rendered WAV out to the host DAW timeline.
-  // Disabled for now: it fires on pointerdown and preempts the HTML5 drag, which
-  // blocks the in-canvas "drop → new Source" gesture inside the plugin. Re-enable
-  // once the native side only begins the OS drag when the pointer leaves the
-  // plugin window (so an in-window drop still reaches the canvas).
-  const NATIVE_DRAG_OUT_TO_DAW = false;
-  // The Output node whose "Drag me" button is mid-drag, so the canvas drop handler
-  // can clone its rendered WAV into a new Source (set on dragstart, cleared on end).
-  let draggingOutput = null;
-  // Drop an Output's "Drag me" onto the canvas → a new Source node holding that
+  // The rendered audio mid-drag from some node's ⠿ handle, so the canvas drop
+  // handler can clone it into a new Source: { wav, name }. Set on dragstart,
+  // cleared on dragend/drop.
+  let draggingWav = null;
+  // Native drag preparation is done when a node renders (and refreshed on hover
+  // for handles whose audio isn't the prepared one), so the AppKit mouse-drag
+  // monitor never waits behind a large PCM bridge transfer after the handle is
+  // already moving.
+  let nativeSampleWav = null, nativePreparedWav = null, nativePreparedLabel = null;
+  // Drop a node's ⠿ handle onto the canvas → a new Source node holding that
   // rendered WAV, placed where it was dropped. Works in every context (browser,
   // extension, plugin); dropping outside the window is the desktop path handled by
-  // the button's own DownloadURL drag (plain browser only). This is a same-page
-  // drag, so `draggingOutput` (set on dragstart) is the signal — don't gate on
+  // the handle's own DownloadURL drag (plain browser only). This is a same-page
+  // drag, so `draggingWav` (set on dragstart) is the signal — don't gate on
   // dataTransfer.types, which WebKit doesn't reliably expose for custom MIME types
   // during dragover.
   desktop.addEventListener('dragover', (e) => {
     // An OS file drag (a .cdp patch from Finder/Explorer) carries the Files type;
-    // in-app drags never do, so this can't shadow the Output-clone gesture below.
-    if (!draggingOutput && [...(e.dataTransfer?.types || [])].includes('Files')) {
+    // in-app drags never do, so this can't shadow the node-clone gesture below.
+    if (!draggingWav && [...(e.dataTransfer?.types || [])].includes('Files')) {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'copy';
       return;
     }
-    if (!draggingOutput) return;
+    if (!draggingWav) return;
     e.preventDefault();               // allow the drop
     e.dataTransfer.dropEffect = 'copy';
   });
@@ -348,7 +363,7 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     // files as Faust devices, placed at the drop point (cascaded when several).
     // Anything else is swallowed with a hint — letting it through would
     // navigate the browser away from the app.
-    if (!draggingOutput) {
+    if (!draggingWav) {
       const files = [...(e.dataTransfer?.files || [])];
       if (!files.length) return;   // an in-app drag (e.g. a waveform-editor region)
       e.preventDefault();
@@ -386,23 +401,148 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
       return;
     }
     e.preventDefault();
-    const wav = draggingOutput.result;
-    draggingOutput = null;
+    const { wav, name } = draggingWav;
+    draggingWav = null;
     if (!wav) return;
-    cloneOutputTo(wav, e.clientX, e.clientY);
+    cloneWavTo(wav, e.clientX, e.clientY, name);
   });
-  // Land a rendered Output WAV in a new Source node at a screen point. Shared by
-  // the HTML5 drop above and the touch drag on the Output's "Drag me" button.
-  function cloneOutputTo(wav, clientX, clientY) {
+  // Land a rendered WAV in a new Source node at a screen point. Shared by the
+  // HTML5 drop above and the touch/Option drag on a node's ⠿ handle.
+  function cloneWavTo(wav, clientX, clientY, label) {
     // Screen point → canvas units (undo the viewport scroll + zoom).
     const r = desktop.getBoundingClientRect();
     const x = (desktop.scrollLeft + clientX - r.left) / zoom;
     const y = (desktop.scrollTop + clientY - r.top) / zoom;
     const src = spawnSource();
-    src.setWav(wav, 'from output');
+    src.setWav(wav, label || 'from output');
     src.x = x; src.y = y; src.el.style.left = x + 'px'; src.el.style.top = y + 'px';
     recordHistory();
     return src;
+  }
+  // Hand the native host the WAV it should drag out, unless it already has this
+  // one. The plugin drags *the sampler's* sample, so the bytes go over the bridge
+  // first; `prepareNativeDragOut` then materialises them as a temp file the OS
+  // drag can carry. Kept in step with the eager prepare in an Output's render.
+  function ensureNativeDragPrepared(wav, label = '', force = false) {
+    if (!wav || !hostSupportsDragOut()) return false;
+    if (!force && nativePreparedWav === wav && nativePreparedLabel === label) return true;
+    if (nativeSampleWav !== wav && sampler) {
+      sampler.setSampleFromWav(wav);
+      nativeSampleWav = wav;
+    }
+    prepareNativeDragOut(wavFileName(label));
+    nativePreparedWav = wav; nativePreparedLabel = label;
+    return true;
+  }
+  // Wire a button as a drag handle for one rendered sound. Four gestures share it,
+  // resolved by pointer type, modifier and where the pointer goes:
+  //   • plugin, plain mouse drag → a real OS drag owned by AppKit (the file can
+  //     cross the process boundary onto a DAW track).
+  //   • plugin, Option-drag, or touch anywhere → an in-page ghost drag; releasing
+  //     over the canvas clones the sound into a new Source.
+  //   • plain browser, drag onto the canvas → the same clone, via HTML5 drop.
+  //   • plain browser, drag out of the window → a file, via the DownloadURL flavour.
+  // getWav() is read at gesture time, so a handle always drags the node's latest
+  // render. A disabled button starts no drag at all, which is how "nothing
+  // rendered yet" is expressed — callers flip `disabled`, not these listeners.
+  function attachDragOut(btn, { getWav, getName }) {
+    const label = () => getName() || '';
+    // Usually already prepared when the node rendered. Refreshing on entry covers
+    // returning to an older node after something else rendered last.
+    btn.addEventListener('pointerenter', (e) => {
+      if (e.pointerType === 'mouse') ensureNativeDragPrepared(getWav(), label());
+    });
+    btn.addEventListener('pointerdown', (e) => {
+      const wav = getWav();
+      const nativeHostDrag = e.pointerType === 'mouse' && wav && hostSupportsDragOut();
+      // The plugin's unmodified mouse gesture belongs to the native OS so it can
+      // cross the process boundary reliably. Option-drag explicitly chooses the
+      // in-page clone gesture instead.
+      if (nativeHostDrag && !e.altKey) {
+        e.preventDefault();
+        ensureNativeDragPrepared(wav, label());
+        beginNativeDragOut();
+        return;
+      }
+      const internalMouseDrag = nativeHostDrag && e.altKey;
+      // Touch never starts an HTML5 drag (iOS fires no dragstart from a finger),
+      // so the same gesture runs on pointer events: press, drag onto the canvas,
+      // release → a Source lands where you let go, with a ghost following the
+      // finger. Releasing without moving drops it into the middle of the view,
+      // so a plain tap still does something visible. The handle carries
+      // touch-action:none, or the desktop would scroll out from under the drag.
+      if (!internalMouseDrag && e.pointerType !== 'touch') return;
+      if (!wav) return;
+      e.preventDefault();
+      e.stopPropagation();   // a title-bar handle must not also start a window move
+      btn.setPointerCapture(e.pointerId);
+      const sx = e.clientX, sy = e.clientY;
+      let ghost = null;
+      const at = (ev) => { ghost.style.left = ev.clientX + 'px'; ghost.style.top = ev.clientY + 'px'; };
+      const mv = (ev) => {
+        if (!ghost) {
+          if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < 10) return;   // not a drag yet
+          ghost = el('div', { class: 'drag-ghost', textContent: `⠿ ${label() || 'sound'}` });
+          document.body.appendChild(ghost);
+        }
+        at(ev);
+      };
+      const cleanup = () => {
+        btn.removeEventListener('pointermove', mv);
+        btn.removeEventListener('pointerup', up);
+        btn.removeEventListener('pointercancel', cancel);
+        ghost?.remove();
+      };
+      const up = (ev) => {
+        cleanup();
+        const r = desktop.getBoundingClientRect();
+        const inside = ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom;
+        if (!ghost && e.pointerType === 'touch') cloneWavTo(wav, r.left + r.width / 2, r.top + r.height / 2, label());   // touch tap: centre
+        else if (inside) cloneWavTo(wav, ev.clientX, ev.clientY, label());
+      };
+      const cancel = () => { cleanup(); };
+      btn.addEventListener('pointermove', mv);
+      btn.addEventListener('pointerup', up);
+      btn.addEventListener('pointercancel', cancel);
+    });
+    btn.addEventListener('dragstart', (e) => {
+      const wav = getWav();
+      if (!wav) { e.preventDefault(); return; }
+      // Native plugin drags use the pointer-capture path above; allowing WebKit
+      // to start its own session here would race the AppKit drag at the edge.
+      if (hostSupportsDragOut()) { e.preventDefault(); return; }
+      e.stopPropagation();
+      draggingWav = { wav, name: label() };   // for the in-canvas drop → new Source
+      e.dataTransfer.setData('application/x-cdp-source', '1');
+      e.dataTransfer.effectAllowed = 'copy';
+      // Only offer the file to the OS in a plain browser. In a native WebView host
+      // (extension/plugin), WebKit escalates a DownloadURL drag into a native file
+      // promise — the macOS "+" copy cursor — which takes over the drag session and
+      // swallows the in-page drop, so the canvas never sees it. Omitting it keeps
+      // the drag a plain in-page HTML5 drag, so `drop` fires on the canvas.
+      let url = null;
+      if (!inNativeHost()) {
+        url = URL.createObjectURL(new Blob([wav], { type: 'audio/wav' }));
+        e.dataTransfer.setData('DownloadURL', `audio/wav:${wavFileName(label())}:${url}`);
+      }
+      btn.addEventListener('dragend', () => {
+        draggingWav = null;
+        if (url) setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }, { once: true });
+    });
+    return btn;
+  }
+  // The ⠿ handle itself: one 18px chrome button, used in node title bars and in
+  // bank rows. Starts disabled — nothing has rendered yet.
+  function makeDragHandle({ getWav, getName }, opts = {}) {
+    const btn = el('button', {
+      class: opts.class || 'gwin-drag', type: 'button', textContent: '⠿', disabled: true,
+      draggable: !hostSupportsDragOut(), style: 'cursor: grab; touch-action: none',
+      title: opts.title || (hostSupportsDragOut()
+        ? 'Drag this sound to a DAW, desktop or Finder — Option-drag onto the desk to make a Source'
+        : 'Drag this sound onto the desk to make a new Source — or out to your desktop / Finder'),
+    });
+    return attachDragOut(btn, { getWav, getName });
   }
   // A host can inject its own action button(s) into every Output node's footer
   // (e.g. an "Apply" button) via window.__cdpHost.registerOutputAction.
@@ -416,9 +556,11 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     const made = outputActionFactory(n);
     (Array.isArray(made) ? made : [made]).filter(Boolean).forEach((e) => n.actionsEl.appendChild(e));
   };
-  // Source samples are embedded into the host state copy of the graph so waveforms
-  // restore on project reload — but only when small, to bound saved-project size.
-  const MAX_EMBED_WAV = 1024 * 1024;   // 1 MB of WAV bytes
+  // Source WAVs are part of the patch document and must always be embedded in
+  // host state. Generated/output previews are optional caches, so only small
+  // ones are embedded; larger previews get the fixed-size envelope below.
+  const MAX_EMBED_PREVIEW_WAV = 1024 * 1024;   // 1 MB of WAV bytes
+  const WAVE_CACHE_BINS = 512;
   const bytesToB64 = (bytes) => {
     let bin = ''; const CH = 0x8000;
     for (let i = 0; i < bytes.length; i += CH) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
@@ -429,6 +571,103 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
     return out;
   };
+  // A WAV object never changes in place, so cache both its thumbnail envelope and
+  // (when small) base64 once. persist() can run for every slider tick; decoding and
+  // re-encoding audio there would otherwise make immediate native shadowing costly.
+  const audioStateCache = new WeakMap();
+  const waveEnvelopeCache = new WeakMap();
+  // The fixed-size thumbnail on its own. Browser persistence wants this without
+  // the base64 copy of the audio that audioState() also builds for host state.
+  function waveEnvelope(wav) {
+    if (!wav) return null;
+    if (waveEnvelopeCache.has(wav)) return waveEnvelopeCache.get(wav);
+    let out = null;
+    try {
+      const { channelData, length, sampleRate } = decodeAudio(wav);
+      const peaks = new Int16Array(WAVE_CACHE_BINS * 2);
+      for (let b = 0; b < WAVE_CACHE_BINS; b++) {
+        const start = Math.floor(b * length / WAVE_CACHE_BINS);
+        const end = Math.max(start + 1, Math.floor((b + 1) * length / WAVE_CACHE_BINS));
+        let min = 1, max = -1;
+        for (const data of channelData) {
+          for (let i = start; i < end && i < length; i++) {
+            const v = data[i] || 0;
+            if (v < min) min = v;
+            if (v > max) max = v;
+          }
+        }
+        if (max < min) min = max = 0;
+        peaks[b * 2] = Math.round(clamp(min, -1, 1) * 32767);
+        peaks[b * 2 + 1] = Math.round(clamp(max, -1, 1) * 32767);
+      }
+      out = {
+        v: 1,
+        bins: WAVE_CACHE_BINS,
+        duration: length / (sampleRate || 44100),
+        peaksB64: bytesToB64(new Uint8Array(peaks.buffer)),
+      };
+    } catch { /* malformed/unsupported audio: omit the visual cache */ }
+    waveEnvelopeCache.set(wav, out);
+    return out;
+  }
+  function audioState(wav) {
+    if (!wav) return null;
+    const previous = audioStateCache.get(wav);
+    if (previous) return previous;
+    const out = {};
+    const wave = waveEnvelope(wav);
+    if (wave) out.wave = wave;
+    if (wav.length <= MAX_EMBED_PREVIEW_WAV) out.wavB64 = bytesToB64(wav);
+    audioStateCache.set(wav, out);
+    return out;
+  }
+  // ---- Source audio persistence (browser) -----------------------------------
+  // A Source is document input: unlike a generator's output or a rendered result
+  // it can't be recomputed, so losing it on reload loses work. The patch JSON is
+  // far too small a place for WAVs, so the bytes go to a content-addressed
+  // IndexedDB store (audio-store.js) and the patch carries only the key.
+  // A native host embeds source audio in its own state, so this is browser-only.
+  // The sound's waveform thumbnail rides along in the same record, so the two
+  // share one lifetime: clearing the store never leaves a picture of audio that
+  // has gone, and a share link doesn't carry ~2.8 KB of peaks per Source.
+  setStoreDiagnostics((msg) => logError(msg + ' — Source audio will last this session only'));
+  function rememberSourceAudio(n, wav) {
+    n.source.wavKey = null;
+    if (!wav || inNativeHost()) return;
+    putWav(wav, n.source.name || '', waveEnvelope(wav)).then((key) => {
+      if (n.source.wav !== wav) return;   // superseded while we were hashing
+      n.source.wavKey = key;
+      if (key) persist();                 // the key is part of the document
+    });
+  }
+  // Restore a Source from the store: one lookup brings back both its waveform and
+  // its audio. Missing (another machine, a cleared store) leaves the node empty
+  // but named, so it's obvious which file to reopen.
+  function restoreSourceAudio(n, key, name, { showWave, apply }) {
+    getWav(key).then((rec) => {
+      if (!rec || n.source.wav) return;
+      n.source.wavKey = key;              // already stored — don't re-put it
+      if (rec.wave) showWave(rec.wave);   // the picture first, then the audio
+      apply(rec.bytes, name || rec.name || 'Source');
+    }).catch(() => { /* the node stays empty; the name still shows */ });
+  }
+  // Large Source files are encoded once, then reused by every immediate host
+  // snapshot. Keeping this separate from audioStateCache prevents a large Source
+  // WAV shared with an Output preview from accidentally bypassing the preview cap.
+  const fullWavB64Cache = new WeakMap();
+  function fullWavB64(wav) {
+    if (!wav) return null;
+    let encoded = fullWavB64Cache.get(wav);
+    if (!encoded) { encoded = bytesToB64(wav); fullWavB64Cache.set(wav, encoded); }
+    return encoded;
+  }
+  function addAudioState(target, wav, { fullWav = false } = {}) {
+    const cached = audioState(wav);
+    if (!cached) return;
+    if (cached.wave) target.wave = cached.wave;
+    const wavB64 = fullWav ? fullWavB64(wav) : cached.wavB64;
+    if (wavB64) target.wavB64 = wavB64;
+  }
 
   const node = (id) => patch.nodes.get(id);
   const cascadePos = () => { const o = (cascade++ % 9) * 30; return { x: 30 + o, y: 30 + o }; };
@@ -531,11 +770,74 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     loopBtn.onclick = () => { loop = !loop; loopBtn.classList.toggle('on', loop); if (mine()) player.setLoop(loop); };
     return { wrap: el('span', {}, playBtn, loopBtn), setEnabled: (on) => { playBtn.disabled = !on; if (!on) stop(); }, stop, dispose: off, play };
   }
+  // A bank (a multi-output effect's files, or a Gather's collection) has no single
+  // waveform, so it renders as a file list: each sound plays, saves and drags on
+  // its own. Used by every node that can hold a bank — the Output window and the
+  // bank-producing nodes themselves — so a file is reachable wherever it is made.
+  // Hidden until a run produces a bank, so those nodes stay compact until then.
+  function makeBankList(getLabel = () => '') {
+    const wrap = el('div', { class: 'bank-list', style: 'display:none;max-height:220px;overflow:auto;margin:4px 0' });
+    let off = null;   // player 'change' listener for the item ▶/■ labels
+    const render = (res) => {
+      wrap.innerHTML = '';
+      const rows = [];
+      res.outputs.forEach((bytes, i) => {
+        const name = res.names?.[i] || `out${i + 1}.wav`;
+        const pb = el('button', { class: 'secondary', type: 'button', textContent: '▶', title: 'Play ' + name });
+        pb.onclick = () => {
+          if (player.isPlaying(bytes)) { player.stop(); return; }
+          const buffer = wavToAudioBuffer(bytes, audioCtx);
+          player.play({ token: bytes, buffer, sampleRate: buffer.sampleRate, length: buffer.length, origin: 'node' });
+        };
+        const row = el('div', { style: 'display:flex;gap:6px;align-items:center;margin:2px 0' }, pb,
+          el('span', { style: 'flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap', textContent: name }));
+        if (canSaveFile()) {
+          const sb = el('button', { class: 'secondary', type: 'button', textContent: '↓', title: 'Save ' + name });
+          sb.onclick = () => saveWav(bytes, name);
+          row.appendChild(sb);
+        }
+        // The bank item's own drag handle. The label prefixes the node's name so a
+        // dragged-out file says which bank it came from, e.g. "partition-band3".
+        const stem = () => { const l = getLabel(); return l ? `${l}-${name.replace(/\.wav$/i, '')}` : name; };
+        const dh = makeDragHandle({ getWav: () => bytes, getName: stem },
+          { class: 'gwin-drag bank-drag', title: `Drag "${name}" onto the desk to make a Source — or out to your desktop / Finder` });
+        dh.disabled = false;
+        row.appendChild(dh);
+        rows.push({ pb, bytes });
+        wrap.appendChild(row);
+      });
+      if (canSaveFile() && res.outputs.length > 1) {
+        const all = el('button', { class: 'secondary', type: 'button', textContent: '↓ Save all' });
+        // slight stagger — browsers throttle rapid multi-downloads
+        all.onclick = async () => {
+          for (let i = 0; i < res.outputs.length; i++) {
+            await saveWav(res.outputs[i], res.names?.[i] || `out${i + 1}.wav`);
+            await new Promise((r) => setTimeout(r, 150));
+          }
+        };
+        wrap.appendChild(el('div', { style: 'margin-top:4px' }, all));
+      }
+      off?.();
+      off = player.on(() => { for (const r of rows) r.pb.textContent = player.isPlaying(r.bytes) ? '■' : '▶'; });
+      wrap.style.display = '';
+    };
+    const clear = () => { off?.(); off = null; wrap.innerHTML = ''; wrap.style.display = 'none'; };
+    return { el: wrap, render, clear, dispose: () => off?.() };
+  }
+  // Mid-chain nodes (effects, Raw process, PVOC Resynthesise) don't show a
+  // waveform or a transport, but the runner computes their audio on the way to
+  // the Output — so keep it, and any stage of a chain can be dragged out, not
+  // only the end. Held in memory only: never serialized (see serializeNode), and
+  // replaced by that node's next run. `dragOut` for makeWindow comes back.
+  function retainRenderedAudio(n, label) {
+    n.setPreviewWav = (wav) => { if (!wav) return; n.previewWav = wav; n.setDraggable(true); };
+    return { getWav: () => n.previewWav, getName: () => n.name || label };
+  }
   // Click a node's mini waveform to pop open the full-screen navigator. getWav()
   // is read at open time so the latest rendered/loaded audio is shown.
-  function attachWaveZoom(cvs, getWav, getName, onCrop = null) {
+  function attachWaveZoom(cvs, getWav, getName, onCrop = null, getCache = null) {
     const nameOf = typeof getName === 'function' ? getName : () => getName;
-    waveScopes.push({ cvs, getWav });   // re-rendered on theme change; animated during playback
+    waveScopes.push({ cvs, getWav, getCache });   // re-rendered on theme change; animated during playback
     cvs.style.cursor = 'zoom-in';
     cvs.addEventListener('click', (e) => {
       e.stopPropagation();   // don't trigger the window roll-up shade
@@ -601,7 +903,7 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
   // viewport, so we grow the (scrollable) canvas to fit and scroll back to the
   // start rather than clamping nodes off-screen. Used when loading a recipe and
   // from Edit ▸ Arrange nodes.
-  function applyAutoLayout() {
+  function applyAutoLayout({ scroll = true } = {}) {
     const nodes = [...patch.nodes.values()].filter((n) => n.type !== 'log' && n.el);
     if (!nodes.length) return;
     const size = (n) => ({ w: n.el.offsetWidth || 220, h: n.el.offsetHeight || 120 });
@@ -612,7 +914,7 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
       n.x = x; n.y = y; n.el.style.left = x + 'px'; n.el.style.top = y + 'px';
     }
     growCanvas(); redrawAll(); persist();
-    desktop.scrollTo({ left: 0, top: 0, behavior: 'smooth' });
+    if (scroll) desktop.scrollTo({ left: 0, top: 0, behavior: 'smooth' });
   }
 
   function addEdge(from, to) {
@@ -984,7 +1286,13 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     const titleEl = el('span', { class: 'gwin-title' });
     // Optional ? button (CDP help): toggles a lazily-loaded usage panel in the body.
     const help = opts.help ? el('button', { class: 'gwin-help', type: 'button', title: 'CDP help', textContent: '?' }) : null;
-    const bar = el('div', { class: 'gwin-bar' }, close, titleEl, ...(help ? [help] : []), shade);
+    // Optional ⠿ handle: drag this node's rendered sound out to the desktop/DAW, or
+    // onto the desk to clone it into a new Source. Lives in the title bar so every
+    // node that renders audio offers it in the same place, at no cost in body
+    // height — and so it still works on a rolled-up window.
+    const drag = opts.dragOut ? makeDragHandle(opts.dragOut) : null;
+    n.setDraggable = drag ? (on) => { drag.disabled = !on; } : () => {};
+    const bar = el('div', { class: 'gwin-bar' }, close, titleEl, ...(drag ? [drag] : []), ...(help ? [help] : []), shade);
     n.baseTitle = title; n.titleEl = titleEl; applyTitle(n);
     const toggleShade = () => { const on = win.classList.toggle('shaded'); shade.textContent = on ? '▸' : '▾'; updateCablesFor(n.id); persist(); };
     shade.addEventListener('click', (e) => { e.stopPropagation(); toggleShade(); });
@@ -1041,7 +1349,7 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     }, true);
     bar.addEventListener('pointerdown', (e) => {
       if (e.button !== 0) return;  // right/middle button: let contextmenu open the menu, don't start a drag
-      if (e.target.closest('.gwin-close, .gwin-shade, .gwin-help')) return;  // let the title-bar buttons get their own click
+      if (e.target.closest('.gwin-close, .gwin-shade, .gwin-help, .gwin-drag')) return;  // let the title-bar buttons get their own click
       focus();
       // Dragging a node outside the current selection collapses to just it; dragging
       // a member of a multi-selection moves the whole group by the same delta.
@@ -1067,8 +1375,8 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
       bar.addEventListener('pointermove', mv); bar.addEventListener('pointerup', up);
     });
     close.addEventListener('click', () => requestRemove(n));
-    bar.addEventListener('dblclick', (e) => { if (e.target.closest('.gwin-close, .gwin-shade, .gwin-help')) return; toggleShade(); });
-    bar.addEventListener('contextmenu', (e) => { if (e.target.closest('.gwin-close, .gwin-shade, .gwin-help')) return; e.preventDefault(); e.stopPropagation(); openNodeMenu(n, e.clientX, e.clientY); });
+    bar.addEventListener('dblclick', (e) => { if (e.target.closest('.gwin-close, .gwin-shade, .gwin-help, .gwin-drag')) return; toggleShade(); });
+    bar.addEventListener('contextmenu', (e) => { if (e.target.closest('.gwin-close, .gwin-shade, .gwin-help, .gwin-drag')) return; e.preventDefault(); e.stopPropagation(); openNodeMenu(n, e.clientX, e.clientY); });
 
     content.appendChild(win);
     patch.nodes.set(n.id, n);
@@ -1238,11 +1546,14 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
   function spawnSource(init = null) {
     const pos = cascadePos();
     const n = { id: patch.nodes.size ? patch.nextId() : 'src', type: 'source', ...pos,
-      source: { kind: 'file', wav: null, name: null }, inPorts: [], outPort: { name: 'out', kind: 'audio' } };
+      source: { kind: 'file', wav: null, name: null }, waveCache: init?.wave || null,
+      inPorts: [], outPort: { name: 'out', kind: 'audio' } };
     const wave = el('canvas', { style: 'height:70px' });
     // Only Sources get Crop — it replaces this node's own audio with the region.
     // Cropping detaches a url source: the region no longer matches the remote file.
-    attachWaveZoom(wave, () => n.source.wav, () => n.source.name || 'Source', (cropped, label) => { n.source.kind = 'file'; n.source.url = null; setWav(cropped, label); });
+    attachWaveZoom(wave, () => n.source.wav, () => n.source.name || 'Source',
+      (cropped, label) => { n.source.kind = 'file'; n.source.url = null; setWav(cropped, label); },
+      () => n.waveCache);
     const status = el('div', { class: 'muted', style: 'font-size:14px;margin:4px 0', textContent: 'empty' });
     const transport = makeTransport(() => n.source.wav);
     n.transportDispose = transport.dispose;
@@ -1275,7 +1586,9 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     sourceInfoHooks.add(renderInfo);   // live-refresh when the session rate changes
     n.infoDispose = () => sourceInfoHooks.delete(renderInfo);
 
-    const setWav = (wav, label) => { n.source.wav = wav; n.source.name = label; n.source.resampledFrom = null; drawWave(wave, wav); status.textContent = label; transport.setEnabled(true); renderInfo(); markDirty(); };
+    // `store: false` is for audio that came *out* of the store — re-putting it
+    // would hash and write the same bytes again for nothing.
+    const setWav = (wav, label, { store = true } = {}) => { n.source.wav = wav; n.waveCache = null; n.source.name = label; n.source.resampledFrom = null; drawWave(wave, wav); status.textContent = label; transport.setEnabled(true); n.setDraggable(true); renderInfo(); if (store) rememberSourceAudio(n, wav); markDirty(); };
     n.setWav = setWav;   // lets the waveform editor promote a region into this Source
 
     const fileInput = el('input', { type: 'file', accept: 'audio/*,.wav', style: 'display:none' });
@@ -1326,12 +1639,12 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     };
 
     const body = el('div', {}, el('div', { style: 'display:flex;gap:6px;align-items:center' }, choose, urlBtn, infoBtn), fileInput, status, info, resampleBtn, wave, transport.wrap);
-    makeWindow(n, 'Source', body);
+    makeWindow(n, 'Source', body, { dragOut: { getWav: () => n.source.wav, getName: () => n.name || n.source.name || 'source' } });
     // A url source fetches and decodes itself on load, so a recipe or shared
     // patch renders without a manual file pick.
     if (init && init.kind === 'url' && init.url) loadFromUrl(init.url, init.name);
-    // Restoring a saved patch: file sources reopen empty (the audio isn't stored);
-    // legacy tone/pulse sources from older patches regenerate their audio once.
+    // Restoring a saved patch: legacy tone/pulse sources from older patches
+    // regenerate their audio once.
     if (init && (init.kind === 'tone' || init.kind === 'pulses')) {
       n.source.kind = init.kind;
       (async () => {
@@ -1347,6 +1660,25 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     if (init && init.wavB64) {
       try { setWav(b64ToBytes(init.wavB64), init.name || 'Source'); }
       catch (e) { logError('source restore failed: ' + e.message); }
+    } else if (init?.kind === 'file' && init.name) {
+      // A file Source whose audio didn't come back with it. Name it anyway — the
+      // patch always carries that — so it's clear *which* file to reopen rather
+      // than leaving a blank window. Filled in below if the store has the sound.
+      status.textContent = init.name + ' · not stored here';
+      const showCached = (w) => { n.waveCache = w; drawWaveCache(wave, w); status.textContent = init.name + ' · waveform cached'; };
+      // `wave` in a saved patch predates the local audio store (and still comes
+      // from a native host), so keep honouring it.
+      if (n.waveCache) showCached(n.waveCache);
+      // Browser: audio and waveform both come from the local store, keyed by content.
+      if (init.audioKey) {
+        restoreSourceAudio(n, init.audioKey, init.name, {
+          showWave: showCached,
+          apply: (bytes, name) => setWav(bytes, name, { store: false }),
+        });
+      }
+    } else if (n.waveCache) {
+      drawWaveCache(wave, n.waveCache);
+      status.textContent = (init?.name || 'Source') + ' · waveform cached';
     }
     return n;
   }
@@ -1494,7 +1826,7 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     const spec = genById[genId];
     const pos = cascadePos();
     const state = { values: init ? { ...init.values } : {}, envs: init?.envs ? { ...init.envs } : {}, unlocked: !!init?.unlocked };
-    const n = { id: patch.nextId(), type: 'generator', genId, ...pos, state, wav: null,
+    const n = { id: patch.nextId(), type: 'generator', genId, ...pos, state, wav: null, waveCache: init?.wave || null,
       data: init?.data ?? (spec.data ? spec.data.default : null),
       // Spectrum generators get a ◇ spectral input: cable a PVOC Analyse node in and
       // the ◇ Analyse button extracts its partials. Ignored by the runner (UI-time seed).
@@ -1503,13 +1835,13 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     const body = el('div', {});
     if (spec.blurb) body.appendChild(el('div', { class: 'muted', style: 'font-size:14px;margin-bottom:6px', textContent: spec.blurb }));
     const wave = el('canvas', { style: 'height:70px' });
-    attachWaveZoom(wave, () => n.wav, () => spec.label || 'Generator');
+    attachWaveZoom(wave, () => n.wav, () => spec.label || 'Generator', null, () => n.waveCache);
     const genBtn = el('button', { type: 'button', textContent: 'Generate' });
     let genPlaced = false;   // set when a sub-section places genBtn itself (partials gens share its row with Analyse)
     // Out-of-date indicator (like the Output node): once it has been generated,
     // any of this generator's own param/data/envelope edits shade the window and
     // flag the button until it's regenerated. `touch` also marks downstream stale.
-    const markStale = () => { if (!n.wav || n.stale) return; n.stale = true; genBtn.textContent = '⟳ Generate'; n.el?.classList.add('stale'); wave.classList.add('stale'); };
+    const markStale = () => { if ((!n.wav && !n.waveCache) || n.stale) return; n.stale = true; genBtn.textContent = '⟳ Generate'; n.el?.classList.add('stale'); wave.classList.add('stale'); };
     const clearStale = () => { n.stale = false; genBtn.textContent = 'Generate'; n.el?.classList.remove('stale'); wave.classList.remove('stale'); };
     const touch = () => { markStale(); markDirty(); };
     const driven = {};
@@ -1661,7 +1993,7 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     n.transportDispose = transport.dispose;
     const generate = async () => {
       try {
-        n.wav = await genAudio(spec, n); drawWave(wave, n.wav); transport.setEnabled(true);
+        n.wav = await genAudio(spec, n); n.waveCache = null; drawWave(wave, n.wav); transport.setEnabled(true);
         markDirty();    // downstream (the Output) is now out of date…
         clearStale();   // …but this generator is freshly current
       } catch (e) { logError(e.message); }
@@ -1670,11 +2002,11 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     // Called by the runner during a Run with this generator's freshly computed
     // audio, so its preview/play come alive without a manual Generate. No
     // markDirty(): this audio reflects the current params, it isn't a fresh edit.
-    n.setPreviewWav = (wav) => { if (!wav) return; n.wav = wav; drawWave(wave, wav); transport.setEnabled(true); clearStale(); };
+    n.setPreviewWav = (wav) => { if (!wav) return; n.wav = wav; n.waveCache = null; drawWave(wave, wav); transport.setEnabled(true); n.setDraggable(true); clearStale(); };
     body.append(...(genPlaced ? [] : [el('div', { style: 'margin-top:6px' }, genBtn)]), wave, transport.wrap);
     // Changing a range can move a value, which invalidates the rendered audio.
     if (refreshers.length) n.setUnlocked = makeUnlocker(n, () => { for (const fn of refreshers) if (fn()) markStale(); });
-    makeWindow(n, spec.label, body, { help: () => describeGenerator(spec) });
+    makeWindow(n, spec.label, body, { help: () => describeGenerator(spec), dragOut: { getWav: () => n.wav, getName: () => n.name || spec.label } });
     if (n.state.unlocked) n.el.classList.add('unlocked');   // restored from a saved patch
     // inline breakpoint sockets: a visible ○ at the start of each automatable row.
     for (const s of sockets) {
@@ -1682,6 +2014,13 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
       g.classList.add('rowport');
       s.row.querySelector('.prow-label').prepend(g);   // the label cell anchors it
     }
+    if (init?.wavB64) {
+      try { n.setPreviewWav(b64ToBytes(init.wavB64)); }
+      catch (e) { logError('generator preview restore failed: ' + e.message); }
+    } else if (n.waveCache) {
+      drawWaveCache(wave, n.waveCache);
+    }
+    if (init?.stale) markStale();
     if (!init) generate();   // fresh node: synthesize once so it isn't empty
     return n;
   }
@@ -1733,20 +2072,20 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     // One audio input port per declared source cable (in, in2, in3…); 0 for a generator.
     const audioInPorts = (count) => Array.from({ length: count }, (_, i) => ({ name: i ? 'in' + (i + 1) : 'in', kind: 'audio', label: i ? 'in ' + (i + 1) : 'in' }));
     const n = { id: patch.nextId(), type: 'faust', faustKind: kind,
-      code: init?.code ?? (presets[0]?.code || DEFAULT_CODE[kind]), ...pos, state, wav: null,
+      code: init?.code ?? (presets[0]?.code || DEFAULT_CODE[kind]), ...pos, state, wav: null, waveCache: init?.wave || null,
       params: [], nIn: kind === 'effect' ? 1 : 0, nOut: 1, nSources: kind === 'effect' ? 1 : 0,
       inPorts: audioInPorts(kind === 'effect' ? 1 : 0),
       outPort: { name: 'out', kind: 'audio' }, paramPorts: [] };
 
     const durDur = () => Number(state.values.dur) || 3;
     const wave = el('canvas', { style: 'height:70px' });
-    attachWaveZoom(wave, () => n.wav, () => 'Faust ' + kind);
+    attachWaveZoom(wave, () => n.wav, () => 'Faust ' + kind, null, () => n.waveCache);
     const genBtn = el('button', { type: 'button', textContent: 'Generate' });
     const transport = makeTransport(() => n.wav);
     // A second transport living in the code-editor modal's preview strip.
     const modalTransport = makeTransport(() => n.wav);
     n.transportDispose = () => { transport.dispose(); modalTransport.dispose(); closeCodeEditor(n.id); };
-    const markStale = () => { if (!n.wav || n.stale) return; n.stale = true; genBtn.textContent = '⟳ Generate'; n.el?.classList.add('stale'); wave.classList.add('stale'); };
+    const markStale = () => { if ((!n.wav && !n.waveCache) || n.stale) return; n.stale = true; genBtn.textContent = '⟳ Generate'; n.el?.classList.add('stale'); wave.classList.add('stale'); };
     const clearStale = () => { n.stale = false; genBtn.textContent = 'Generate'; n.el?.classList.remove('stale'); wave.classList.remove('stale'); };
     // Param tweaks while the code editor is up re-render the preview after a
     // short settle (sliders fire per pixel). Code edits do NOT come through
@@ -1833,10 +2172,10 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     };
 
     const generate = async () => {
-      try { n.wav = await genFaustAudio(n); drawWave(wave, n.wav); transport.setEnabled(true); modalTransport.setEnabled(true); setCodeEditorWav(n.id, n.wav); markDirty(); clearStale(); }
+      try { n.wav = await genFaustAudio(n); n.waveCache = null; drawWave(wave, n.wav); transport.setEnabled(true); modalTransport.setEnabled(true); n.setDraggable(true); setCodeEditorWav(n.id, n.wav); markDirty(); clearStale(); }
       catch (e) { logError(e.message); }
     };
-    n.setPreviewWav = (wav) => { if (!wav) return; n.wav = wav; drawWave(wave, wav); transport.setEnabled(true); modalTransport.setEnabled(true); setCodeEditorWav(n.id, wav); clearStale(); };
+    n.setPreviewWav = (wav) => { if (!wav) return; n.wav = wav; n.waveCache = null; drawWave(wave, wav); transport.setEnabled(true); modalTransport.setEnabled(true); n.setDraggable(true); setCodeEditorWav(n.id, wav); clearStale(); };
     genBtn.onclick = generate;
 
     // Effect preview while the code editor is up: run the upstream subgraph
@@ -1876,14 +2215,16 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
         for (const k of Object.keys(state.values)) if (k !== 'dur' && !names.has(k)) delete state.values[k];
         for (const k of Object.keys(state.envs)) if (!names.has(k)) delete state.envs[k];
         rebuild();
-        markDirty();
+        if (!opts.restoring) markDirty();
         setCodeEditorErrors(n.id, null);
         if (n.nIn === 0) {
-          const gen = generate();
+          const gen = opts.restoring && (n.wav || n.waveCache) ? Promise.resolve() : generate();
           // Play only after a successful render (a failed one leaves the node stale).
           if (opts.play) gen.then(() => { if (n.wav && !n.stale) modalTransport.play(); });
         } else {
-          n.wav = null; transport.setEnabled(false); modalTransport.setEnabled(false); setCodeEditorWav(n.id, null);
+          if (!(opts.restoring && (n.wav || n.waveCache))) {
+            n.wav = null; n.waveCache = null; transport.setEnabled(false); modalTransport.setEnabled(false); setCodeEditorWav(n.id, null);
+          }
           // With the editor up, re-render the input chain through the new DSP.
           if (isCodeEditorOpen(n.id)) previewEffect(opts);
         }
@@ -1896,10 +2237,18 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     const applyPreset = (p) => { n.code = p.code; refreshCodeEditor(n.id, p.code); recompile(); };
     sel.onchange = () => { const p = presets.find((x) => x.id === sel.value); sel.value = ''; if (p) applyPreset(p); };
 
-    makeWindow(n, kind === 'generator' ? 'Faust generator' : 'Faust effect', body, { help: () => Promise.resolve(FAUST_HELP) });
+    makeWindow(n, kind === 'generator' ? 'Faust generator' : 'Faust effect', body,
+      { help: () => Promise.resolve(FAUST_HELP), dragOut: { getWav: () => n.wav, getName: () => n.name || 'faust' } });
     gemSelect(sel);
     rebuild();      // initial ports/params from the kind default (before compile)
-    recompile();    // compile the starter/loaded code → real I/O + params
+    if (init?.wavB64) {
+      try { n.setPreviewWav(b64ToBytes(init.wavB64)); }
+      catch (e) { logError('Faust preview restore failed: ' + e.message); }
+    } else if (n.waveCache) {
+      drawWaveCache(wave, n.waveCache);
+    }
+    if (init?.stale) markStale();
+    recompile({ restoring: !!init });    // compile loaded code for dynamic I/O; keep its cached audio
     return n;
   }
 
@@ -2042,7 +2391,20 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     else fitParamGrid(grid);
     n.setParamDriven = (portName, on) => driven[portName.slice('param:'.length)]?.(on);
     if ((eff.params || []).length) n.setUnlocked = makeUnlocker(n, refreshAll);
-    makeWindow(n, eff.label, body, { help: () => describeEffect(eff) });
+    // A multi-output effect has no single sound to hang off the title bar: its
+    // files appear as a bank list in the body once it has run, each row draggable
+    // on its own. Ordinary audio effects get the title-bar handle instead;
+    // spectral ones get neither (a .ana frame isn't a sound you can drop).
+    let opts = { help: () => describeEffect(eff) };
+    if (eff.multiOut) {
+      const bankList = makeBankList(() => n.name || eff.label);
+      n.transportDispose = bankList.dispose;   // removeNode drops the player listener
+      n.setBankResult = (res) => { n.bankResult = res; bankList.render(res); };
+      body.appendChild(bankList.el);
+    } else if (kind === 'audio') {
+      opts.dragOut = retainRenderedAudio(n, eff.label);
+    }
+    makeWindow(n, eff.label, body, opts);
     if (n.state.unlocked) n.el.classList.add('unlocked');   // restored from a saved patch
     // Inline breakpoint sockets: a visible ○ at the start of each automatable row.
     for (const s of sockets) {
@@ -2129,7 +2491,7 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
       }
       return out;
     };
-    makeWindow(n, 'Raw process', body, { help: () => fetchHelp(n.raw.program, rawMode()) });
+    makeWindow(n, 'Raw process', body, { help: () => fetchHelp(n.raw.program, rawMode()), dragOut: retainRenderedAudio(n, 'raw') });
     return n;
   }
 
@@ -2144,7 +2506,10 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     const body = el('div', { class: 'muted', style: 'font-size:14px;max-width:190px',
       textContent: anal ? 'Audio → spectral. Feed spectral processes, then Resynthesise.'
                         : 'Spectral → audio. Ends a spectral chain.' });
-    makeWindow(n, anal ? 'PVOC Analyse' : 'PVOC Resynthesise', body);
+    // Only Resynthesise ends in audio — an Analyse node's output is spectral, so
+    // there's nothing draggable to offer there.
+    makeWindow(n, anal ? 'PVOC Analyse' : 'PVOC Resynthesise', body,
+      anal ? {} : { dragOut: retainRenderedAudio(n, 'resynth') });
     return n;
   }
 
@@ -2166,7 +2531,7 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
       const i = Math.min(bank.outputs.length, Math.max(1, Math.round(Number(n.state.values.index) || 1)));
       info.textContent = `item ${i} of ${bank.outputs.length}` + (bank.names?.[i - 1] ? ` — ${bank.names[i - 1]}` : '');
     };
-    n.setPreviewWav = (bytes) => { n.previewWav = bytes; transport.setEnabled(true); };
+    n.setPreviewWav = (bytes) => { n.previewWav = bytes; transport.setEnabled(true); n.setDraggable(true); };
     const transport = makeTransport(() => n.previewWav);
     n.transportDispose = transport.dispose;
     const audBtn = el('button', { class: 'secondary', type: 'button', textContent: '▶ Audition',
@@ -2175,13 +2540,13 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
       audBtn.disabled = true;
       try {
         const res = await runner.run(patch, n.id);   // fires setPreviewWav via the runner callback
-        if (res?.bytes) { n.previewWav = res.bytes; transport.setEnabled(true); transport.play(); }
+        if (res?.bytes) { n.previewWav = res.bytes; transport.setEnabled(true); n.setDraggable(true); transport.play(); }
       } catch (e) { logError('error: ' + e.message); }
       finally { audBtn.disabled = false; }
     };
     body.appendChild(info);
     body.appendChild(el('div', {}, audBtn, transport.wrap));
-    makeWindow(n, 'Pick', body);
+    makeWindow(n, 'Pick', body, { dragOut: { getWav: () => n.previewWav, getName: () => n.name || 'pick' } });
     return n;
   }
 
@@ -2213,143 +2578,51 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
       updateCablesFor(n.id); markDirty();
     };
     body.appendChild(el('div', {}, addBtn, delBtn));
+    // Once run, the collected sounds list themselves — so a gathered set can be
+    // auditioned and its files dragged out without a Pick node per item.
+    const bankList = makeBankList(() => n.name || 'gather');
+    n.transportDispose = bankList.dispose;
+    n.setBankResult = (res) => { n.bankResult = res; bankList.render(res); };
+    body.appendChild(bankList.el);
     makeWindow(n, 'Gather', body);
     return n;
   }
 
-  function spawnOutput() {
+  function spawnOutput(init = null) {
     const pos = cascadePos();
     const n = { id: patch.nodes.size ? patch.nextId() : 'out', type: 'output', ...pos,
-      inPorts: [{ name: 'in', kind: 'audio', accepts: ['audio', 'bank'] }], outPort: null, result: null, bankResult: null };
+      inPorts: [{ name: 'in', kind: 'audio', accepts: ['audio', 'bank'] }], outPort: null,
+      result: null, bankResult: null, waveCache: init?.wave || null };
     const wave = el('canvas', { style: 'height:70px' });
-    attachWaveZoom(wave, () => n.result, 'Output');
+    attachWaveZoom(wave, () => n.result, 'Output', null, () => n.waveCache);
     // Bank results (multi-output effects) render as a file list instead of the
-    // single-WAV waveform/transport — each sound plays/saves individually.
-    const bankList = el('div', { style: 'display:none;max-height:220px;overflow:auto;margin:4px 0' });
-    let bankOff = null;   // player 'change' listener for the item ▶/■ labels
-    const renderBankList = (res) => {
-      bankList.innerHTML = '';
-      const rows = [];
-      res.outputs.forEach((bytes, i) => {
-        const name = res.names?.[i] || `out${i + 1}.wav`;
-        const pb = el('button', { class: 'secondary', type: 'button', textContent: '▶', title: 'Play ' + name });
-        pb.onclick = () => {
-          if (player.isPlaying(bytes)) { player.stop(); return; }
-          const buffer = wavToAudioBuffer(bytes, audioCtx);
-          player.play({ token: bytes, buffer, sampleRate: buffer.sampleRate, length: buffer.length, origin: 'node' });
-        };
-        const row = el('div', { style: 'display:flex;gap:6px;align-items:center;margin:2px 0' }, pb,
-          el('span', { style: 'flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap', textContent: name }));
-        if (canSaveFile()) {
-          const sb = el('button', { class: 'secondary', type: 'button', textContent: '↓', title: 'Save ' + name });
-          sb.onclick = () => saveWav(bytes, name);
-          row.appendChild(sb);
-        }
-        rows.push({ pb, bytes });
-        bankList.appendChild(row);
-      });
-      if (canSaveFile() && res.outputs.length > 1) {
-        const all = el('button', { class: 'secondary', type: 'button', textContent: '↓ Save all' });
-        // slight stagger — browsers throttle rapid multi-downloads
-        all.onclick = async () => {
-          for (let i = 0; i < res.outputs.length; i++) {
-            await saveWav(res.outputs[i], res.names?.[i] || `out${i + 1}.wav`);
-            await new Promise((r) => setTimeout(r, 150));
-          }
-        };
-        bankList.appendChild(el('div', { style: 'margin-top:4px' }, all));
-      }
-      bankOff?.();
-      bankOff = player.on(() => { for (const r of rows) r.pb.textContent = player.isPlaying(r.bytes) ? '■' : '▶'; });
-      bankList.style.display = '';
-    };
+    // single-WAV waveform/transport — each sound plays, saves and drags individually.
+    const bankList = makeBankList(() => n.name || 'output');
     const transport = makeTransport(() => n.result);
-    n.transportDispose = () => { transport.dispose(); bankOff?.(); };
+    n.transportDispose = () => { transport.dispose(); bankList.dispose(); };
     const saveBtn = el('button', { class: 'secondary', type: 'button', textContent: '↓ Save', disabled: true });
     // A host WebView that can't write a file gets no Save button — the host's own
     // injected action (e.g. "Apply → Live") is how the result leaves the dialog.
     if (!canSaveFile()) saveBtn.style.display = 'none';
-    // Drag the rendered WAV straight out to the desktop, Finder or a DAW track.
-    // Uses Chromium's DownloadURL drag flavour ("<mime>:<name>:<url>"); the blob
-    // URL is minted per drag and revoked when it ends. Disabled until there's a
-    // result (disabled buttons don't start drags, so nothing to guard on drop).
-    const dragBtn = el('button', { class: 'secondary', type: 'button', textContent: '⤓ Drag me', disabled: true,
-      draggable: true, style: 'cursor: grab; touch-action: none',
-      title: 'Drag onto the canvas to make a new Source from this output — or out to your desktop / Finder' });
     // Host-injected action buttons land here (empty in a plain browser).
     const actions = el('span', { class: 'output-actions', style: 'display:contents' });
-    // Two drag destinations, resolved by where the drop lands:
-    //   • onto the canvas → clone this output into a new Source node (all contexts;
-    //     handled by the desktop drop listener below via `draggingOutput`).
-    //   • out of the window (plain browser only) → the WAV rides the Chromium
-    //     DownloadURL flavour to the desktop/Finder.
-    // The plugin's native OS drag to the host DAW is disabled for now (see
-    // NATIVE_DRAG_OUT_TO_DAW): it starts on pointerdown and preempts the HTML5
-    // drag, which would block the in-canvas drop → new Source inside the plugin.
-    dragBtn.addEventListener('pointerdown', (e) => {
-      if (NATIVE_DRAG_OUT_TO_DAW && n.result && hostSupportsDragOut()) beginNativeDragOut(wavFileName(n.name));
-      // Touch never starts an HTML5 drag (iOS fires no dragstart from a finger),
-      // so the same gesture runs on pointer events: press, drag onto the canvas,
-      // release → a Source lands where you let go, with a ghost following the
-      // finger. Releasing without moving drops it into the middle of the view,
-      // so a plain tap still does something visible. The button carries
-      // touch-action:none, or the desktop would scroll out from under the drag.
-      if (e.pointerType !== 'touch' || !n.result) return;
-      e.preventDefault();
-      dragBtn.setPointerCapture(e.pointerId);
-      const sx = e.clientX, sy = e.clientY;
-      let ghost = null;
-      const at = (ev) => { ghost.style.left = ev.clientX + 'px'; ghost.style.top = ev.clientY + 'px'; };
-      const mv = (ev) => {
-        if (!ghost) {
-          if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < 10) return;   // not a drag yet
-          ghost = el('div', { class: 'drag-ghost', textContent: `⤓ ${n.name || 'output'}` });
-          document.body.appendChild(ghost);
-        }
-        at(ev);
-      };
-      const up = (ev) => {
-        dragBtn.removeEventListener('pointermove', mv);
-        dragBtn.removeEventListener('pointerup', up);
-        dragBtn.removeEventListener('pointercancel', cancel);
-        ghost?.remove();
-        const r = desktop.getBoundingClientRect();
-        const inside = ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom;
-        if (!ghost) cloneOutputTo(n.result, r.left + r.width / 2, r.top + r.height / 2);   // tap: centre of the view
-        else if (inside) cloneOutputTo(n.result, ev.clientX, ev.clientY);
-      };
-      const cancel = () => { ghost?.remove(); dragBtn.removeEventListener('pointermove', mv); dragBtn.removeEventListener('pointerup', up); };
-      dragBtn.addEventListener('pointermove', mv);
-      dragBtn.addEventListener('pointerup', up);
-      dragBtn.addEventListener('pointercancel', cancel);
-    });
-    dragBtn.addEventListener('dragstart', (e) => {
-      if (!n.result) { e.preventDefault(); return; }
-      draggingOutput = n;   // for the in-canvas drop → new Source
-      e.dataTransfer.setData('application/x-cdp-source', '1');
-      e.dataTransfer.effectAllowed = 'copy';
-      // Only offer the file to the OS in a plain browser. In a native WebView host
-      // (extension/plugin), WebKit escalates a DownloadURL drag into a native file
-      // promise — the macOS "+" copy cursor — which takes over the drag session and
-      // swallows the in-page drop, so the canvas never sees it. Omitting it keeps
-      // the drag a plain in-page HTML5 drag, so `drop` fires on the canvas.
-      let url = null;
-      if (!inNativeHost()) {
-        url = URL.createObjectURL(new Blob([n.result], { type: 'audio/wav' }));
-        e.dataTransfer.setData('DownloadURL', `audio/wav:${wavFileName(n.name)}:${url}`);
-      }
-      dragBtn.addEventListener('dragend', () => {
-        draggingOutput = null;
-        if (url) setTimeout(() => URL.revokeObjectURL(url), 1000);
-      }, { once: true });
-    });
     const runBtn = el('button', { id: 'run', type: 'button', textContent: 'Run' });
     saveBtn.onclick = () => saveWav(n.result, wavFileName(n.name));
     // Mark the rendered result out of date (only meaningful once there is one):
     // star the Run button, shade the window and dim the stale waveform until the
     // next Run. The star is a CSS badge rather than part of the label, so the
     // button keeps its width and nothing below it shifts.
-    n.markStale = () => { if ((!n.result && !n.bankResult) || n.stale) return; n.stale = true; runBtn.classList.add('stale'); n.el.classList.add('stale'); wave.classList.add('stale'); };
+    n.markStale = () => { if ((!n.result && !n.bankResult && !n.waveCache) || n.stale) return; n.stale = true; runBtn.classList.add('stale'); n.el.classList.add('stale'); wave.classList.add('stale'); };
+    const showResult = (wav) => {
+      n.result = lastResult = wav; n.bankResult = null; n.waveCache = null; lastResultLabel = n.name || '';
+      bankList.clear(); wave.style.display = ''; drawWave(wave, wav);
+      if (sampler) sampler.setSampleFromWav(wav);   // keep the playable sample current
+      nativeSampleWav = wav;
+      transport.setEnabled(true); saveBtn.disabled = false; n.setDraggable(true);
+      // Prepared eagerly, not on the first pointerdown: in the plugin the bytes
+      // cross the bridge first, and the AppKit drag monitor mustn't wait on that.
+      ensureNativeDragPrepared(wav, n.name || '', true);
+    };
     const doRun = async () => {
       runBtn.disabled = true; runBtn.textContent = 'Running…';
       try {
@@ -2357,20 +2630,18 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
         n.stale = lastResultStale = false;
         runBtn.classList.remove('stale'); n.el.classList.remove('stale'); wave.classList.remove('stale');
         if (res.kind === 'bank') {
-          // A bank has no single WAV: show the file list, park the single-result
-          // affordances (waveform, transport, save/drag, sampler, host getResult).
+          // A bank has no single WAV: show the file list — where each row carries
+          // its own ▶ / ↓ / ⠿ — and park the single-result affordances (waveform,
+          // transport, save, the window's drag handle, sampler, host getResult).
           n.result = null; n.bankResult = res;
           lastResult = null; lastResultLabel = '';
-          renderBankList(res); wave.style.display = 'none';
-          transport.setEnabled(false); saveBtn.disabled = true; dragBtn.disabled = true;
+          bankList.render(res); wave.style.display = 'none';
+          transport.setEnabled(false); saveBtn.disabled = true; n.setDraggable(false);
           log(`done — bank of ${res.outputs.length} sound${res.outputs.length === 1 ? '' : 's'}`);
           return null;
         }
         const wav = res.bytes;
-        n.result = lastResult = wav; n.bankResult = null; lastResultLabel = n.name || '';
-        bankList.style.display = 'none'; wave.style.display = ''; drawWave(wave, wav);
-        if (sampler) sampler.setSampleFromWav(wav);   // keep the playable sample current
-        transport.setEnabled(true); saveBtn.disabled = false; dragBtn.disabled = false;
+        showResult(wav);
         log('done — ' + wav.length + ' bytes');
         return wav;
       } catch (e) { logError('error: ' + e.message); return null; }
@@ -2380,10 +2651,17 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     n.run = doRun;                 // programmatic Run (spacebar)
     n.play = transport.play;       // programmatic Play of the rendered result
     n.upToDate = () => (!!n.result || !!n.bankResult) && !n.stale;
-    const body = el('div', {}, runBtn, wave, bankList, el('div', {}, transport.wrap, saveBtn, dragBtn, actions));
-    makeWindow(n, 'Output', body);
+    const body = el('div', {}, runBtn, wave, bankList.el, el('div', {}, transport.wrap, saveBtn, actions));
+    makeWindow(n, 'Output', body, { dragOut: { getWav: () => n.result, getName: () => n.name || 'output' } });
     n.actionsEl = actions;
     applyOutputAction(n);   // populate if a host already registered an action
+    if (init?.wavB64) {
+      try { showResult(b64ToBytes(init.wavB64)); }
+      catch { n.result = null; }
+    } else if (n.waveCache) {
+      drawWaveCache(wave, n.waveCache);
+    }
+    if (init?.stale) n.markStale();
     return n;
   }
 
@@ -2464,8 +2742,8 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
   function exampleFor(p) { return sampleCmd[p] || (spectralSet.has(p) ? '$ANA $OUTANA' : '$IN $OUT'); }
 
   // ---- patch save / load (JSON) ---------------------------------------------
-  // The graph topology + each node's settings, but not rendered/loaded audio:
-  // tone & pulse sources regenerate on load; file sources reopen empty.
+  // The graph topology + each node's settings. Native host state additionally
+  // carries compact waveform envelopes, and full WAV bytes where they are small.
   // patchMeta carries a recipe's { name, description, category } so it survives a
   // round-trip (load recipe → save patch); cleared by New patch.
   let patchMeta = null;
@@ -2475,19 +2753,46 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     if (n.name) b.name = n.name;
     if (n.type === 'source') {
       b.source = { kind: n.source.kind, freq: n.source.freq, dur: n.source.dur, url: n.source.url, name: n.source.name };
-      // Host-state copy only: embed the loaded WAV bytes (base64) when small enough,
-      // so the source node's audio + waveform restore on reload. Omitted from the
-      // undo/localStorage/file-save shape (embedAudio=false) to keep those lean.
-      if (embedAudio && n.source.wav && n.source.wav.length <= MAX_EMBED_WAV)
-        b.source.wavB64 = bytesToB64(n.source.wav);
+      // Host-state copy only. A Source is document input, not a disposable preview:
+      // retain its full WAV even when large so editor reopen and DAW reload work.
+      if (embedAudio) {
+        addAudioState(b.source, n.source.wav, { fullWav: true });
+        if (!n.source.wav && n.waveCache) b.source.wave = n.waveCache;
+      } else if (n.source.wavKey) {
+        // Browser: the audio *and* its waveform live in the local store, so the
+        // patch carries nothing but the key — which keeps share links small (a
+        // stored envelope is ~2.8 KB per Source and barely compresses). The key
+        // is machine-local: a shared link or a patch opened elsewhere won't
+        // resolve it and lands on an empty-but-named Source, as it always did.
+        b.source.audioKey = n.source.wavKey;
+      }
     }
-    else if (n.type === 'generator') b.gen = { id: n.genId, values: { ...n.state.values }, envs: { ...n.state.envs }, data: n.data, analyse: n.getAnalyse?.(), unlocked: n.state.unlocked || undefined };
+    else if (n.type === 'generator') {
+      b.gen = { id: n.genId, values: { ...n.state.values }, envs: { ...n.state.envs }, data: n.data, analyse: n.getAnalyse?.(), unlocked: n.state.unlocked || undefined, stale: n.stale || undefined };
+      if (embedAudio) {
+        addAudioState(b.gen, n.wav);
+        if (!n.wav && n.waveCache) b.gen.wave = n.waveCache;
+      }
+    }
     else if (n.type === 'transform') { b.effectId = n.effectId; b.state = { values: { ...n.state.values }, envs: { ...n.state.envs }, unlocked: n.state.unlocked || undefined }; }
-    else if (n.type === 'faust') b.faust = { kind: n.faustKind, code: n.code, values: { ...n.state.values }, envs: { ...n.state.envs } };
+    else if (n.type === 'faust') {
+      b.faust = { kind: n.faustKind, code: n.code, values: { ...n.state.values }, envs: { ...n.state.envs }, stale: n.stale || undefined };
+      if (embedAudio) {
+        addAudioState(b.faust, n.wav);
+        if (!n.wav && n.waveCache) b.faust.wave = n.waveCache;
+      }
+    }
     else if (n.type === 'rawTransform') b.raw = { ...n.raw };
     else if (n.type === 'breakpoint') b.bp = { ...axisFlags(n.bp), text: n.bp.text };
     else if (n.type === 'pick') b.pick = { values: { ...n.state.values } };
     else if (n.type === 'gather') b.gather = { inputs: n.inPorts.length };
+    else if (n.type === 'output') {
+      b.output = { stale: n.stale || undefined };
+      if (embedAudio) {
+        addAudioState(b.output, n.result);
+        if (!n.result && n.waveCache) b.output.wave = n.waveCache;
+      }
+    }
     return b;
   }
   function serialize({ embedAudio = false } = {}) {
@@ -2664,9 +2969,9 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
   function spawnFromSpec(s) {
     switch (s.type) {
       case 'source': return spawnSource(s.source);
-      case 'generator': return genById[s.gen?.id] ? spawnGenerator(s.gen.id, { values: s.gen.values || {}, envs: s.gen.envs || {}, data: s.gen.data, analyse: s.gen.analyse }) : null;
+      case 'generator': return genById[s.gen?.id] ? spawnGenerator(s.gen.id, { ...s.gen, values: s.gen.values || {}, envs: s.gen.envs || {} }) : null;
       case 'transform': return byId[s.effectId] ? spawnTransform(s.effectId, s.state) : null;
-      case 'faust': return spawnFaust(s.faust?.kind || 'effect', { code: s.faust?.code, values: s.faust?.values || {}, envs: s.faust?.envs || {} });
+      case 'faust': return spawnFaust(s.faust?.kind || 'effect', { ...s.faust, values: s.faust?.values || {}, envs: s.faust?.envs || {} });
       // legacy prototype node types (pre-unified Faust device)
       case 'faustGenerator': return spawnFaust('generator', { code: s.faust?.code, values: s.faust?.values || {}, envs: s.faust?.envs || {} });
       case 'faustEffect': return spawnFaust('effect', { code: s.faust?.code, values: s.faust?.values || {}, envs: s.faust?.envs || {} });
@@ -2676,15 +2981,19 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
       case 'pvocResynth': return spawnPvoc('synth');
       case 'pick': return spawnPick(s.pick);
       case 'gather': return spawnGather(s.gather);
-      case 'output': return spawnOutput();
+      case 'output': return spawnOutput(s.output);
       default: return null;
     }
   }
   // resetSample: drop the loaded sampler sample (for loading a *different* patch —
   // Open / recipe); left false for undo/redo and boot restore so those don't
   // needlessly silence the keyboard.
-  function loadPatch(data, { arrange = false, resetSample = false } = {}) {
+  function loadPatch(data, options = {}) {
     if (!data || data.app !== 'cdp-web-patch' || !Array.isArray(data.nodes)) { logError('not a CDP patch file'); return; }
+    const { arrange, fit } = resolvePatchView(data, options);
+    const { resetSample = false } = options;
+    const loadSerial = ++patchLoadSerial;
+    applyingPatch = true;
     patchMeta = data.metadata || null;
     if (typeof data.tempo === 'number') setBpm(data.tempo);
     for (const n of [...patch.nodes.values()]) if (n.type !== 'log') removeNode(n);
@@ -2710,10 +3019,17 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
       }
       // Windows now have real sizes; auto-arrange when asked (e.g. recipes, whose
       // saved positions don't account for the inserted PVOC nodes / window widths).
-      if (arrange) applyAutoLayout(); else growCanvas();
+      if (arrange) applyAutoLayout({ scroll: !fit }); else growCanvas();
+      // Arrange uses the windows' measured dimensions. Fit on the following
+      // frame so it measures the finished layout rather than the imported x/y.
+      if (fit) requestAnimationFrame(zoomToFit);
       redrawAll();
       recordHistory();   // seed/refresh the undo baseline (deduped for undo/redo)
       log(`loaded patch — ${idMap.size} windows, ${(data.edges || []).length} cables`);
+      if (loadSerial === patchLoadSerial) {
+        applyingPatch = false;
+        persist();        // publish one complete graph after the restore transaction
+      }
     });
   }
   // ---- copy / paste a sub-graph --------------------------------------------
@@ -2822,19 +3138,21 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
   }
 
   // ---- auto-persist to localStorage + undo/redo history ---------------------
-  // Both are driven off the JSON snapshot. persist() is debounced so a knob sweep
-  // coalesces into one localStorage write and one undo step.
+  // Native plugin state is shadowed immediately: a DAW may request state or close
+  // the editor at any time, so correctness cannot depend on a delayed JS timer.
+  // Only localStorage and undo history remain debounced so a knob sweep coalesces.
   let saveTimer = null;
   function persist() {
+    if (applyingPatch) return;
+    const data = serialize();
+    if (inPlugin()) {
+      // This is the authoritative snapshot saveCustomState() reads. Every audio
+      // preview contributes a bounded envelope; small WAVs are included too.
+      try { IPlugSendMsg({ msg: 'SPXFUI', data: JSON.stringify(serialize({ embedAudio: true })) }); } catch { /* bridge unavailable */ }
+    }
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
-      const data = serialize();
-      if (inPlugin()) {
-        // Shadow the graph into the host's plugin state (saveCustomState reads it).
-        // The host copy embeds small source samples (see serialize's embedAudio) so
-        // waveforms restore; the undo snapshot below stays lean (no audio bytes).
-        try { IPlugSendMsg({ msg: 'SPXFUI', data: JSON.stringify(serialize({ embedAudio: true })) }); } catch { /* bridge unavailable */ }
-      } else {
+      if (!inPlugin()) {
         try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch { /* storage full / disabled */ }
       }
       recordHistory(data);
@@ -3100,10 +3418,111 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     if (patch.nodes.size === 0) items.push({ label: '(no windows)', disabled: true });
     return items;
   });
+  // The local audio store, laid out for inspection: what a browser session has
+  // squirrelled away so Sources survive a reload, which of it the open patch is
+  // actually using, and the means to listen to it, save it out, or throw it away.
+  // Native hosts keep source audio in their own state, so the item stays hidden
+  // there rather than showing an always-empty list.
+  async function storedAudioDialog() {
+    const card = el('div', { class: 'gem-dialog store-dialog' });
+    card.setAttribute('popover', 'manual');
+    const list = el('div', { class: 'store-list' });
+    const total = el('div', { class: 'store-total' });
+    const fmtSize = (b) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
+    const fmtWhen = (ts) => new Date(ts).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
+    let playOff = null;
+    const close = () => { playOff?.(); card.hidePopover(); card.remove(); };
+    const refresh = async () => {
+      const rows = await listWavs();
+      // Keys the open patch depends on — deleting one empties that Source on reload.
+      const used = new Set([...patch.nodes.values()].filter((n) => n.type === 'source' && n.source.wavKey).map((n) => n.source.wavKey));
+      list.replaceChildren();
+      if (!rows.length) list.appendChild(el('div', { class: 'store-row muted', textContent: 'nothing stored' }));
+      const tokens = [];
+      for (const r of rows) {
+        const row = el('div', { class: 'store-row' + (used.has(r.key) ? ' in-use' : '') });
+        const play = el('button', { class: 'secondary', type: 'button', textContent: '▶', title: 'Play' });
+        const token = { play, bytes: null };
+        // The record carries its own audio; fetch it once, on first use.
+        const bytesOf = async () => {
+          if (token.bytes) return token.bytes;
+          const rec = await getWav(r.key);
+          return (token.bytes = rec?.bytes || null);
+        };
+        play.onclick = async () => {
+          if (token.bytes && player.isPlaying(token.bytes)) { player.stop(); return; }
+          const bytes = await bytesOf();
+          if (!bytes) { logError('that audio is no longer in the store'); refresh(); return; }
+          const buffer = wavToAudioBuffer(bytes, audioCtx);
+          player.play({ token: bytes, buffer, sampleRate: buffer.sampleRate, length: buffer.length, origin: 'node' });
+        };
+        // The stored thumbnail — the same envelope a restored Source draws — so
+        // the list is scannable by shape, not just by file name.
+        const thumb = el('canvas', { class: 'store-wave' });
+        if (r.wave) requestAnimationFrame(() => drawWaveCache(thumb, r.wave));
+        else thumb.style.visibility = 'hidden';
+        row.append(play,
+          el('span', { class: 'store-name', textContent: r.name || '(unnamed)', title: `${r.name || '(unnamed)'}\nstored ${fmtWhen(r.ts)}\n${r.key}` }),
+          thumb,
+          el('span', { class: 'store-size', textContent: fmtSize(r.len || 0) }));
+        if (canSaveFile()) {
+          const save = el('button', { class: 'secondary', type: 'button', textContent: '↓', title: 'Save to disk' });
+          save.onclick = async () => {
+            const bytes = await bytesOf();
+            if (bytes) saveWav(bytes, wavFileName(r.name || 'stored-audio'));
+          };
+          row.appendChild(save);
+        }
+        const del = el('button', { class: 'secondary', type: 'button', textContent: '✕', title: 'Remove from the store' });
+        del.onclick = async () => {
+          if (used.has(r.key)) {
+            const go = await gemAlert(`<b>${r.name || 'This sound'}</b> is used by a Source in the open patch.<br>Removing it means that Source reopens empty.`,
+              [{ label: 'Cancel', value: false }, { label: 'Remove', value: true, primary: true }]);
+            if (!go) return;
+          }
+          await removeWav(r.key);
+          refresh();
+        };
+        row.appendChild(del);
+        tokens.push(token);
+        list.appendChild(row);
+      }
+      const bytes = rows.reduce((a, r) => a + (r.len || 0), 0);
+      total.replaceChildren(
+        el('span', { textContent: `${rows.length} file${rows.length === 1 ? '' : 's'} · ${fmtSize(bytes)}` }),
+        el('span', { class: 'muted', textContent: 'kept on this machine only' }));
+      playOff?.();
+      playOff = player.on(() => { for (const t of tokens) t.play.textContent = t.bytes && player.isPlaying(t.bytes) ? '■' : '▶'; });
+    };
+    const clearBtn = el('button', { class: 'secondary', type: 'button', textContent: 'Clear all' });
+    clearBtn.onclick = async () => {
+      const go = await gemAlert('Remove <b>every</b> stored sound?<br>Sources in patches that rely on them will reopen empty.',
+        [{ label: 'Cancel', value: false }, { label: 'Clear all', value: true, primary: true }]);
+      if (!go) return;
+      await clearWavs();
+      log('stored audio cleared');
+      refresh();
+    };
+    const doneBtn = el('button', { class: 'ok', type: 'button', textContent: 'Done' });
+    doneBtn.onclick = close;
+    card.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); close(); } });
+    card.append(
+      el('div', { class: 'gem-dialog-inner' },
+        el('div', { class: 'gem-dialog-icon', textContent: '⛁' }),
+        el('div', { class: 'gem-dialog-msg', style: 'flex:1;min-width:0' },
+          el('div', { html: 'Audio kept for this browser, so <b>Source</b> windows come back with their sound after a reload.' }),
+          list, total)),
+      el('div', { class: 'gem-dialog-btns' }, clearBtn, doneBtn));
+    document.body.appendChild(card);
+    card.showPopover();
+    doneBtn.focus();
+    await refresh();
+  }
   if ($('m-options')) dropdown($('m-options'), () => [
     { label: 'Auto Render', checked: autoRender, action: () => setAutoRender(!autoRender) },
     { label: 'Sample rate', submenu: () => SR_CHOICES.map((sr) => ({ label: `${sr} Hz`, checked: sessionRate === sr, action: () => setSampleRate(sr) })) },
     { label: `Tempo: ${getBpm()} BPM…`, action: () => setTempoDialog() },
+    ...(inNativeHost() ? [] : [{ label: 'Stored audio…', action: () => storedAudioDialog() }]),
   ]);
   // Open the GitHub bug tracker in a new window, pre-filling the app version and
   // which context cdp-web is running in — so the report always captures the two
@@ -3431,13 +3850,22 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
   const shareParam = embedded || inPlugin() ? null : getShareParam();
   const saved = embedded ? null : readSaved();     // a patch from a previous session, if any
   const spawnDefaultGraph = () => {
+    // A host "no graph" reply can also arrive for an empty preset while an editor
+    // is already open, so replace the existing document rather than adding to it.
+    const loadSerial = ++patchLoadSerial;
+    applyingPatch = true;
+    for (const n of [...patch.nodes.values()]) if (n.type !== 'log') removeNode(n);
     const s = spawnSource(); s.x = 30; s.y = 20; s.el.style.left = '30px'; s.el.style.top = '20px';
     const o = spawnOutput(); o.x = 560; o.y = 20; o.el.style.left = '560px'; o.el.style.top = '20px';
+    if (loadSerial === patchLoadSerial) applyingPatch = false;
+    persist();
     recordHistory();   // baseline so the first edit is undoable
     log('ready — Process ▸ add a transform, drag cables port→port, then Run.');
   };
   // Nothing to restore or open → show the default Source + Output straight away.
-  if (!saved && !shareParam) spawnDefaultGraph();
+  // Plugin mode waits for CDPLoadGraph/CDPNoGraph after SUIRDY instead: creating a
+  // default eagerly would overwrite the native graph on every editor reopen.
+  if (!saved && !shareParam && !inPlugin()) spawnDefaultGraph();
   (async () => {
     try {
       [programList, spectralSet] = await Promise.all([cdp.programs(), cdp.spectralPrograms().then((s) => new Set(s))]);
@@ -3473,13 +3901,22 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     } else if (saved) { loadPatch(saved); log('restored patch from last session (File ▸ New patch to start over).'); }
   })();
   // expose the patch round-trip for the headless tests / power users
-  window.__patch = { serialize, loadPatch, undo, redo, hist: () => ({ len: history.length, i: histIndex }) };
+  window.__patch = {
+    serialize, loadPatch, undo, redo,
+    arrange: applyAutoLayout,
+    zoomToFit,
+    hist: () => ({ len: history.length, i: histIndex }),
+  };
   // Plugin mode: accept a graph restored from the host's plugin state. The host may
   // push it before the CDP WASM modules finish loading (tone/raw nodes need them),
   // so defer the load until __cdpReady. registerGraphHandler replays any graph that
   // already arrived (cached in index.html), so ordering vs. the host push is safe.
   if (inPlugin() && typeof window.registerGraphHandler === 'function') {
     window.registerGraphHandler((data) => {
+      if (!data) {
+        spawnDefaultGraph();
+        return;
+      }
       const apply = () => {
         try { loadPatch(data, { resetSample: true }); log('restored patch from host state.'); }
         catch (e) { logError('host graph load failed: ' + e.message); }
