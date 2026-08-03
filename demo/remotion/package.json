@@ -8,12 +8,12 @@
     "render": "remotion render"
   },
   "dependencies": {
-    "@remotion/cli": "4.0.410",
-    "remotion": "4.0.410",
+    "@remotion/cli": "4.0.505",
+    "remotion": "4.0.505",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "allowScripts": {
-    "esbuild@0.25.0": true
+    "esbuild@0.28.1": true
   }
 }
