@@ -42,4 +42,9 @@ cpSync(vendor, join(out, 'node_modules'), { recursive: true });
 // 3) tell Pages to serve the tree verbatim (no Jekyll, which would drop node_modules/ and dotfiles)
 writeFileSync(join(out, '.nojekyll'), '');
 
+// 4) custom domain. The Actions deploy uploads this tree as the whole site, so
+// the CNAME has to ship inside it — otherwise the domain lives only in the
+// repo's Pages settings and is lost if those are ever reset.
+writeFileSync(join(out, 'CNAME'), 'cdp-web.app\n');
+
 console.log('✓ built static site → dist/pages/');

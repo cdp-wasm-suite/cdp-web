@@ -86,7 +86,10 @@
     }
   }
   </script>
-  <title>CDP for web</title>
+  <!-- Must match the manifest's "name" byte for byte: Chrome titles an installed
+       PWA window "<app name> - <document.title>" and collapses it to one when
+       they're identical. Any drift here shows up as a doubled title bar. -->
+  <title>CDP for Web</title>
   <!-- Install / home-screen identity. The icons are built from the suite's own
        artwork by scripts/make-icons.mjs; the manifest covers Android + desktop
        installs, the apple-touch-icon covers iOS (which ignores manifest icons).

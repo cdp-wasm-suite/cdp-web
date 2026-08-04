@@ -117,6 +117,11 @@ async function main() {
   await cp(join(ROOT, 'LICENSE'), join(DIST, 'LICENSE'));
   await cp(join(ROOT, 'EXCEPTIONS.md'), join(DIST, 'EXCEPTIONS.md'));
 
+  // README.md likewise misses RUNTIME_EXT, and without it the GitHub Packages
+  // page for every published version reads "No README data found". Its only
+  // relative links are LICENSE, EXCEPTIONS.md and img/, all of which ship above.
+  await cp(join(ROOT, 'README.md'), join(DIST, 'README.md'));
+
   // Asset dirs.
   for (const d of ASSET_DIRS) {
     if (existsSync(join(ROOT, d)))

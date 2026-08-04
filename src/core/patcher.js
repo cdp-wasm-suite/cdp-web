@@ -3849,6 +3849,29 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
   // state comes from #cdpHost / the plugin's own graph push instead.
   const shareParam = embedded || inPlugin() ? null : getShareParam();
   const saved = embedded ? null : readSaved();     // a patch from a previous session, if any
+  // Installed-PWA file handling (manifest `file_handlers`, Chrome/Edge desktop):
+  // double-clicking a .cdp in Finder/Explorer launches the app with the file in
+  // the launch queue. Chrome holds the params until setConsumer runs, so this is
+  // registered here rather than inside the async restore below — and the flag
+  // stops that restore from clobbering the launched patch if the session's
+  // autosave resolves last. `focus-existing` in the manifest means a second
+  // double-click reuses this window and fires the consumer again instead of
+  // reloading, so the same path serves both cold launch and already-open.
+  let launchPending = false;
+  if (!inNativeHost() && 'launchQueue' in window) {
+    window.launchQueue.setConsumer(async (params) => {
+      const h = params?.files?.[0];
+      if (!h) return;
+      launchPending = true;
+      try {
+        loadPatch(JSON.parse(await (await h.getFile()).text()), { resetSample: true });
+        patchHandle = h;   // after loadPatch, which clears the previous handle
+        setNameFromFile(h.name);
+        persist();         // the launched file becomes the session, as Open does
+        log(`opened ${h.name}`);
+      } catch (e) { logError(`could not open ${h.name}: ${e.message}`); }
+    });
+  }
   const spawnDefaultGraph = () => {
     // A host "no graph" reply can also arrive for an empty preset while an editor
     // is already open, so replace the existing document rather than adding to it.
@@ -3894,11 +3917,11 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
         }
       } catch (e) { logError('could not open the shared link: ' + e.message); }
       stripShareParam();   // the address bar shouldn't imply the link still drives the session
-      if (!opened) {
+      if (!opened && !launchPending) {
         if (saved) { loadPatch(saved); log('restored patch from last session (File ▸ New patch to start over).'); }
         else spawnDefaultGraph();
       }
-    } else if (saved) { loadPatch(saved); log('restored patch from last session (File ▸ New patch to start over).'); }
+    } else if (saved && !launchPending) { loadPatch(saved); log('restored patch from last session (File ▸ New patch to start over).'); }
   })();
   // expose the patch round-trip for the headless tests / power users
   window.__patch = {
