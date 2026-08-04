@@ -1,6 +1,6 @@
 {
   "id": "./",
-  "name": "CDP for Web",
+  "name": "cdp-web",
   "short_name": "CDP",
   "description": "The Composers Desktop Project's sound-transformation programs as a GEM-desktop modular patcher, running entirely in the browser.",
   "start_url": "./",

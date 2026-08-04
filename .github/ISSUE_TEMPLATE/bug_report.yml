@@ -23,7 +23,7 @@ body:
       label: Where did you find the bug?
       description: CDP Web can run on its own, inside the CDP plugin, or inside the CDP extension.
       options:
-        - CDP for Web (browser)
+        - cdp-web (browser)
         - CDP plugin (VST/AU in a DAW)
         - CDP extension (Ableton Live)
         - Other / not sure

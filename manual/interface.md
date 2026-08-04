@@ -1,6 +1,6 @@
 # The patcher window
 
-CDP for Web is a retro **audio-desktop**: every process is a small window, and you
+cdp-web is a retro **audio-desktop**: every process is a small window, and you
 wire windows together with patch cables to build a sound. This page explains the
 parts of that desktop — the sockets and cables, the play controls, when things
 grey out, the minimap, the sampler keyboard and the log — so the signs on screen
@@ -244,7 +244,7 @@ your choice is remembered between sessions.
 
 ## Installing it on a phone
 
-CDP for Web is a normal web page, so there's nothing to install — but it can be
+cdp-web is a normal web page, so there's nothing to install — but it can be
 added to a home screen and opened like an app, with its own icon and no browser
 chrome around it:
 

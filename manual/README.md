@@ -1,4 +1,4 @@
-# CDP for Web
+# cdp-web
 
 A retro computing themed node-graph front-end for the **Composers Desktop Project** 
 webassembly port (cdp-wasm).

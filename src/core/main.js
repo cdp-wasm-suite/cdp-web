@@ -33,7 +33,7 @@ const sampler = createSampler(audioCtx);
 // extension, "CDP" from the plugin — three ways: define window.CDP_APP_NAME
 // before this module runs, pass an ?appName= query parameter, or call
 // window.CDPSetAppName(name) any time after load (for hosts that can only inject
-// JS once the page is up, like the plugin webview). Browser default: "CDP for Web".
+// JS once the page is up, like the plugin webview). Browser default: "cdp-web".
 //
 // Version single source of truth: the "version" field in package.json. Bump it
 // with `npm version <patch|minor|major>`. It ships to every build (dev serves
@@ -42,7 +42,7 @@ const sampler = createSampler(audioCtx);
 {
   let appName = window.CDP_APP_NAME
     || new URLSearchParams(location.search).get('appName')
-    || 'CDP for Web';
+    || 'cdp-web';
   let version = '', engineVersion = '';
   const menuEl = document.getElementById('appVersion');
   const aboutEl = document.getElementById('aboutVersion');
