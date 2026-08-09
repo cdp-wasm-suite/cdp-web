@@ -73,8 +73,3 @@ If cdp-web ever accepts outside contributions, a CLA or copyright assignment
 must be in place **before** the first one is merged — otherwise these grants can
 no longer be made for the affected code, and dual licensing becomes impossible
 to offer without tracking down every past contributor.
-
-## Commercial licensing
-
-Separate proprietary licenses are available on the same basis. Contact
-[olilarkin.com](https://www.olilarkin.com/).

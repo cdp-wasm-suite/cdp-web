@@ -1,9 +1,9 @@
+> **⚠ WORK IN PROGRESS** — this documentation is a work in progress
 # Saving, opening & sharing patches
 
-A patch — the windows, cables, parameter values, envelopes and Faust code on
-your desk — saves as a single **`.cdp` file** (plain JSON inside, so it travels
-well and diffs cleanly). This page covers getting patches on and off your
-machine, and sharing them as links.
+A cdp-web patch — the process nodes, connections, parameter values, envelopes on
+the desktop — saves as a single **`.cdp` file**, but can also be shared via a URL and
+QR code.
 
 ## Saving
 
@@ -12,7 +12,7 @@ machine, and sharing them as links.
 - **File ▸ Save patch as…** names (or renames) the patch. The name is kept
   *inside* the patch, so it survives reloads, share links and other machines.
 
-In **Chrome and Edge** saving uses a real OS save dialog — pick any folder, and
+In **Chromium browsers** saving uses a real OS save dialog — pick any folder, and
 subsequent saves **overwrite that same file in place**, like a desktop app.
 Opening a patch keeps the same connection: Save after Open updates the file you
 opened. In other browsers (Safari, Firefox) saves download to your Downloads
@@ -24,9 +24,8 @@ downloads elsewhere.
 
 ## Opening
 
-- **File ▸ Open patch…** — pick a `.cdp` file (older `.cdpweb.json` saves open
-  too).
-- Or just **drag the file from your computer onto the desk**.
+- **File ▸ Open patch…** — pick a `.cdp` file
+- Or just **drag the file from your computer onto the desktop**.
 
 Opening replaces the whole desk, like File ▸ New patch. Your work-in-progress
 is autosaved per browser, so closing the tab never loses the current patch.
@@ -36,12 +35,19 @@ is autosaved per browser, so closing the tab never loses the current patch.
 **File ▸ Share patch…** — or the **↗ share button** in the menu bar, which is
 there on a phone too — packs the entire patch into a URL (compressed, in the
 part after `#`, so nothing is uploaded anywhere — the link *is* the patch).
-A dialog explains what travels, lets you **name the patch** (the name is the
+The dialog puts the link up as a **QR code** — point a phone at the screen to
+carry the patch across — and lets you **name the patch** (the name is the
 patch's own — it travels with the link and stays on your copy, where Save uses
-it), and then offers **Copy link**, plus **Share…** where the platform has a
-share sheet (phones, macOS Safari) to hand the link straight to Messages, Mail
-or anything else. Opening a link loads the patch, asking first if the recipient
-already has a patch of their own on the desk.
+it; the code redraws as you type, since the name is inside the link). It then
+offers **Copy link**, plus **Share…** where the platform has a share sheet
+(phones, macOS Safari) to hand the link straight to Messages, Mail or anything
+else. The **?** button explains what does and doesn't travel. Opening a link
+loads the patch, asking first if the recipient already has a patch of their own
+on the desktop.
+
+A big patch makes a long link and so a dense code: if a camera can't read it,
+copy the link instead. Past about 2.9 KB no QR code can hold it at all, and the
+dialog says so in place of the code.
 
 What travels in a link:
 
@@ -62,14 +68,19 @@ Following a link is the usual way in, but a link can also be **pasted**:
 
 - **File ▸ Open shared link…** takes a pasted link (surrounding text and all —
   it finds the link in what you paste) and opens the patch it carries.
-- **Pasting a link onto the desk** (⌘V / Ctrl-V) does the same. A share link is
+- **Pasting a link onto the desktop** (⌘V / Ctrl-V) does the same. A share link is
   a whole patch rather than a fragment to add to this one, so it opens instead
-  of pasting — after asking, since it replaces what's on the desk.
+  of pasting — after asking, since it replaces what's on the desktop.
+- **Pasting a link into the address bar** of a tab already showing cdp-web works
+  too. Nothing reloads in that case, so the patch arrives in the running app —
+  which asks before it replaces your desktop, like any other link.
 
 This is the way in for an app **added to an iOS home screen**. iOS opens links
-in the browser and will not hand them to an installed web app — so copy the
-link where you received it, then paste it in. (Android is different: an
-installed copy captures its own links, and one opens the app directly.)
+in the browser and will not hand them to an installed web app — so scanning a
+QR code, or following a link, lands in Safari rather than the installed copy;
+copy the link and paste it in instead. (Android is different: an installed copy
+captures its own links, and one opens the app directly — including a scanned
+code, whether the app was running or not.)
 
 ## URL sources
 

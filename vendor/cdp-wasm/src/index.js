@@ -9,21 +9,26 @@
 import { decodeWav, decodeAiff, decodeAudio, encodeWav, wavToAudioBuffer, audioBufferToWav, floatWavIsSane } from './wav.js';
 
 export { decodeWav, decodeAiff, decodeAudio, encodeWav, wavToAudioBuffer, audioBufferToWav, floatWavIsSane };
-export { EFFECTS, effectsByCategory, programsFor, buildArgs, paramRange, applyEffect, conformChannels, conformRate } from './catalog.js';
+import { EFFECTS, programsFor } from './effects.js';
+import { GENERATORS } from './generators.js';
+
+export { EFFECTS, effectsByCategory, programsFor, buildArgs, paramRange, applyEffect, conformChannels, conformRate } from './effects.js';
 export { GENERATORS, genById, applyGenerator } from './generators.js';
 export { ENVELOPE_PARAMS } from './breakpoints.js';
 export { extractEnvelope, warpBreakpoints, parseBreakpoints, formatBreakpoints, REPLOT_MODES } from './envelope.js';
 export { getPitch, findPeaks } from './analysis.js';
 
-/** The CDP programs bundled in this package. */
-export const PROGRAMS = [
-  'synth', 'sndinfo', 'housekeep', 'pvoc',
-  'modify', 'distort', 'distshift', 'filter', 'gate', 'clip', 'tremolo', 'newdelay', 'scramble', 'hover',
-  'envel', 'tremenv', 'grain', 'spin',
-  'blur', 'hilite', 'focus', 'stretch',
-  'extend', 'pitch', 'repitch', 'glisten',
-  'morph', 'combine', 'formants', 'submix', 'texture', 'psow',
-];
+/**
+ * Every CDP program the typed catalog can invoke: each effect's program plus
+ * the helpers it needs (pvoc for spectral effects, `needs:` extras, mixfile
+ * renderers), and the generator programs. Derived from the catalog, so it can
+ * never go stale. The *bundled* set is much larger — `cdp.programs()` lists it
+ * from the build's manifest.json.
+ */
+export const PROGRAMS = [...new Set([
+  ...EFFECTS.flatMap((e) => [...programsFor(e), ...(e.mixChain ? [e.mixChain.buildProgram, e.mixChain.renderProgram] : [])]),
+  ...GENERATORS.map((g) => g.program),
+])].sort();
 
 export class CDP {
   /**

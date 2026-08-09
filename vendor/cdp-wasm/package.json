@@ -1,6 +1,6 @@
 {
   "name": "cdp-wasm",
-  "version": "0.4.1",
+  "version": "0.5.1",
   "description": "CDP (Composers Desktop Project) audio processing programs compiled to WebAssembly, for Node.js and the browser.",
   "type": "module",
   "main": "./src/index.js",
@@ -24,6 +24,8 @@
     "src/",
     "wasm/",
     "man/",
+    "docs/tools/cdp-index.json",
+    "!docs/README.md",
     "index.d.ts",
     "README.md",
     "CHANGELOG.md"
@@ -34,12 +36,14 @@
   "scripts": {
     "build:wasm": "bash scripts/build-wasm.sh",
     "prepack": "bash scripts/build-wasm.sh && node docs/tools/render-man.mjs",
-    "test": "node test/catalog.mjs && node test/aiff.mjs && node test/float-output.mjs && node test/envelope.mjs && node test/analysis.mjs && node test/externals.mjs && node test/scalar-fallback.mjs && node test/cli.mjs && node test/patch-skill.mjs && node scripts/check-docs.mjs && node scripts/check-skill.mjs && node scripts/check-arg-order.mjs && node plugins/cdp-sound-design/skills/cdp-sound-design/scripts/smoke.mjs",
+    "test": "node test/catalog-schema.mjs && node test/catalog.mjs && node test/aiff.mjs && node test/float-output.mjs && node test/envelope.mjs && node test/analysis.mjs && node test/externals.mjs && node test/scalar-fallback.mjs && node test/cli.mjs && node test/patch-skill.mjs && node scripts/check-docs.mjs && npm run docs:check && node scripts/check-skill.mjs && node scripts/check-arg-order.mjs && node plugins/cdp-sound-design/skills/cdp-sound-design/scripts/smoke.mjs",
     "test:parity": "node test/parity.mjs",
     "typecheck": "npx -y --package typescript@5.7 tsc --project tsconfig.json",
     "bench": "node scripts/bench.mjs",
     "docs:man": "node docs/tools/render-man.mjs",
-    "docs:build": "node docs/tools/build-doc-map.mjs && node docs/tools/harvest.mjs && node docs/tools/render-effect-docs.mjs && node docs/tools/render-generator-docs.mjs && node docs/tools/render-man.mjs"
+    "docs:index": "node docs/tools/build-cdp-index.mjs",
+    "docs:check": "node scripts/check-doc-provenance.mjs && node scripts/check-docs-fresh.mjs",
+    "docs:build": "node docs/tools/build-cdp-index.mjs && node docs/tools/build-doc-map.mjs && node docs/tools/harvest.mjs && node docs/tools/render-effect-docs.mjs && node docs/tools/render-generator-docs.mjs && node docs/tools/render-man.mjs"
   },
   "keywords": [
     "cdp",
@@ -53,7 +57,7 @@
   ],
   "author": "Oliver Larkin",
   "license": "(MIT AND LGPL-2.1-or-later)",
-  "homepage": "https://github.com/cdp-wasm-suite/cdp-wasm",
+  "homepage": "https://cdp-wasm-suite.github.io/",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/cdp-wasm-suite/cdp-wasm.git"

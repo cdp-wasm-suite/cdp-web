@@ -1,3 +1,4 @@
+> **⚠ WORK IN PROGRESS** — this documentation is a work in progress
 # Faust nodes
 
 Alongside the built-in CDP processes you can run your own DSP, written in
@@ -12,7 +13,7 @@ same device seeded with different starter code:
 - **Faust generator** — starts from a synth preset (makes sound from nothing).
 - **Faust effect** — starts from a processing preset (transforms its input).
 
-You can also **drop a `.dsp` file from your computer onto the desk** — it
+You can also **drop a `.dsp` file from your computer onto the desktop** — it
 becomes a device seeded with that code, compiled and with its sliders built,
 picked as generator or effect from what the code declares.
 
@@ -25,8 +26,8 @@ picked as generator or effect from what the code declares.
 
 Your code is saved with the patch, so a compiled device travels with the piece.
 If the code doesn't compile, the error is shown in the node and nothing else in
-the graph is disturbed. Compiling and rendering both happen on a background
-thread, so the desk stays responsive while a big DSP is busy.
+the graph is disturbed. Compiling and rendering both happen in the background, 
+so the desktop stays responsive while a big DSP is busy.
 
 ## Inputs and outputs follow the code
 
@@ -62,4 +63,4 @@ Distortion · Ring mod (external carrier) · Crossfade A/B.
 
 Each is a compact, readable starting point — change a few numbers, recompile,
 and listen. For the full language, see the
-[Faust documentation](https://faust.grame.fr/doc/manual/).
+[Faust documentation](https://faustdoc.grame.fr/manual/quick-start/).

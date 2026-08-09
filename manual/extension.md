@@ -4,9 +4,9 @@
 > **Ableton Live extension** build. The scaffolding below marks out where each topic will go —
 > fill the sections in as the extension settles.
 
-The **Composers Desktop Extension** embeds cdp-web inside Ableton, 
+The **Composers Desktop Extension** (cdp-extension) embeds cdp-web inside Ableton Live, 
 so you can transform a clip without leaving your session.
-
+<!-- 
 ## What's different from the browser
 
 - **Your selection arrives as a Source.** When the extension opens, the audio
@@ -29,4 +29,4 @@ so you can transform a clip without leaving your session.
 
 ## Troubleshooting
 
-...
+... -->

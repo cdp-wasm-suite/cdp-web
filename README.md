@@ -89,12 +89,5 @@ Fonts under `fonts/` and the CDP documentation that `manual.json` is generated
 from carry their own terms — see `fonts/atari-st-LICENSE.txt` and
 [composersdesktop.com](https://www.composersdesktop.com/).
 
-Commercial licensing: the copyright in the AGPL'd portion is held solely by
-Oliver Larkin, so a separate proprietary license can be negotiated — get in
-touch via [olilarkin.com](https://www.olilarkin.com/).
-
-[`EXCEPTIONS.md`](EXCEPTIONS.md) records the standing grants made on that basis:
-cdp-plugin and cdp-extension embed cdp-web under Apache-2.0, and binaries may
-ship through App Store / VST3 channels whose terms the AGPL would otherwise
-forbid. Those grants do not extend to third parties — a fork gets the AGPL alone.
+[`EXCEPTIONS.md`](EXCEPTIONS.md) records the standing grants made on that basis.
 

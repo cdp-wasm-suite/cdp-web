@@ -1,4 +1,5 @@
-# Banks and multichannel sound
+> **⚠ WORK IN PROGRESS** — this documentation is a work in progress
+# Banks/Multi-channel
 
 Some CDP programs don't fit the one-sound-in, one-sound-out mould. This page
 covers the two ways that shows up in the patcher: **banks** (a set of sounds on

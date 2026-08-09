@@ -1,15 +1,13 @@
-# The patcher window
+> **⚠ WORK IN PROGRESS** — this documentation is a work in progress
+# The patcher
 
-cdp-web is a retro **audio-desktop**: every process is a small window, and you
-wire windows together with patch cables to build a sound. This page explains the
-parts of that desktop — the sockets and cables, the play controls, when things
-grey out, the minimap, the sampler keyboard and the log — so the signs on screen
-read at a glance.
-
-The whole interface is deliberately **two-tone** (an ink colour on paper, over a
-coloured desk). Nothing is colour-coded, so signal types are told apart by
-**shape** and by the **dash pattern** of a cable, not by hue — which keeps every
-theme legible.
+Every CDP/Catalog process is a box in the node patcher UI and you connect 
+them together with patch cables to build a sound processing chain. Effectively
+this is like chaining the CDP command line programs-  which operate on one
+audio file after another - however, due to the fact that cdp-wasm uses a virtual
+file system, you don't work with the intermediate files directly. It's important
+to understand that unlike Max MSP, Reaktor etc, the cables here are representing
+connections between offline processes - not realtime signals or messages.
 
 ## Adding and arranging processes
 
@@ -20,7 +18,7 @@ theme legible.
 - You can also add from the **menus** at the top.
 - **Drag a window** by its title bar. **Right-click the title bar to rename** a
   node.
-- **Pan** the desk by scrolling (trackpad, scrollbars), by dragging the minimap,
+- **Pan** the desktop by scrolling (trackpad, scrollbars), by dragging the minimap,
   or with one finger on a touchscreen. **Zoom** with a trackpad pinch, a
   **two-finger pinch** on a touchscreen, or **Ctrl + scroll** — the view zooms
   toward the pointer / the middle of the pinch (0.25× – 3×).
@@ -28,10 +26,49 @@ theme legible.
   selection. A single click on empty desk clears it.
 - **Delete** the selected windows with **Delete** or **Backspace**. **Escape**
   clears the selection.
-- **Drop files from your computer** straight onto the desk: an **audio file**
+- **Drop files from your computer** straight onto the desktop: an **audio file**
   becomes a Source window with the sound loaded, a **Faust `.dsp` file**
   becomes a Faust device (compiled, sliders built), and a **`.cdp` patch file**
   opens as the new patch (see [saving & sharing](sharing.md)).
+
+Every process in those menus is one *mode* of one CDP program, with its arguments
+named and ranged for a slider. If you know CDP and want to see — or step outside —
+what that curation decided, read [the catalog and CDP](guide/catalog-and-cdp.md);
+**File ▸ Add raw CDP process** runs any bundled program with CDP's own
+arguments.
+
+## Parameters, ranges and unlocking
+
+Each process shows one row per parameter: a slider, the current value, a **∿**
+button to make it [vary over time](guide/breakpoints.md), and — on rate and time
+parameters — a **♪** picker that snaps the value to a note division at the project
+tempo. **Right-click a slider** to type an exact value; the prompt shows the span
+it will accept.
+
+That span is a **curated musical range**, not the limit of the underlying CDP
+program. Ranges here are sized to the part of a program that is worth having under
+a slider, which is usually a good deal narrower than what CDP itself will take —
+so a slider has travel worth having instead of one usable degree at the far left.
+The [catalog and CDP](guide/catalog-and-cdp.md) page explains what else the
+curation decides on your behalf, including the mode each process runs and the
+arguments it fixes.
+
+**Unlock ranges** leaves that span behind. Right-click a process's **title bar**
+and choose it:
+
+- A parameter widens to the engine limit on record, or — where none is recorded —
+  simply stops clamping. Typed values pass straight through, and anything the
+  program refuses fails with CDP's own message in the [Log](#the-log).
+- The title bar **dithers** while a process is unlocked, and the flag is saved
+  with the patch.
+- Constraints *between* parameters (a maximum that has to sit above its minimum)
+  stay enforced either way — those are the engine's rules, not taste.
+- **Re-locking pulls any strayed value back** inside the curated span.
+
+The same right-click menu has **CDP help** (also the **?** in the title bar),
+which opens a panel inside the window: a plain-language description of the process
+and its controls. On a **Raw process** node the same button shows CDP's own usage
+text for the mode you typed, printed by the program itself.
 
 ## Sockets: the shape is the signal
 
@@ -143,7 +180,7 @@ Turn on **Options ▸ Auto Render** to re-render automatically as you work.
 Every window that holds a sound carries a **⠿** handle in its title bar, next to
 the **?** and **▾** buttons. Drag it to take that sound somewhere:
 
-- **Onto the desk** → a new **Source** node lands where you let go, holding that
+- **Onto the desktop** → a new **Source** node lands where you let go, holding that
   sound. This is how you freeze a stage of a chain and build on it, or branch a
   patch without re-rendering the same thing twice.
 - **Out of the window** → a `.wav` file, dropped on your desktop, Finder or a
@@ -157,7 +194,7 @@ node keeps its own result, so *any* point of a chain can be dragged out, not
 just the end.
 
 On a touchscreen, drag the handle with your finger — a small tag follows it, and
-releasing over the desk drops the new Source there. A plain tap (no movement)
+releasing over the desktop drops the new Source there. A plain tap (no movement)
 drops it in the middle of the view. Dropping *out* of the page isn't possible on
 a touchscreen; use **↓ Save** instead.
 
@@ -193,11 +230,23 @@ agree: the patch stays tiny (a share link doesn't grow by ~3 KB per Source), and
 clearing a sound never leaves a picture of audio that has gone.
 
 **Options ▸ Stored audio…** shows what's there: every sound with its waveform,
-its size and whether the open patch is using it, plus **▶** to hear it, **↓** to
-save it to disk and **✕** to remove it. **Clear all** empties the store. Removing
-a sound the open patch relies on asks first — that Source will reopen with only
-its name. If the browser refuses to store anything (private windows often do),
-the app says so in the Log and keeps working; the audio just lasts the session.
+its size and whether the open patch is using it, plus **▶** to hear it, **+** to
+add it to the patch, **↓** to save it to disk and **✕** to remove it. **Clear
+all** empties the store. Removing a sound the open patch relies on asks first —
+that Source will reopen with only its name. If the browser refuses to store
+anything (private windows often do), the app says so in the Log and keeps
+working; the audio just lasts the session.
+
+The list is also the quickest way back to a sound you used earlier: **+** opens a
+new **Source** window holding it (**double-clicking** the row does the same), and
+the dialog stays open so you can add several one after another. The new Source
+shares the stored copy rather than making a second one, so nothing is duplicated
+on disk.
+
+Once the store passes **100 MB**, a note appears beside the **▶ Play** button at
+the bottom of the screen — *⛁ 130 MB cached* — because the store is otherwise
+invisible and only ever grows. Click it to open this dialog and clear out what
+you no longer need. It disappears again once the store is back under 100 MB.
 
 In the **plugin** none of this applies: source audio is saved into the DAW's own
 project state, so it travels with the project.
@@ -242,18 +291,3 @@ reveals itself so the error isn't missed.
 Click the **▾ / ▸** button (or double-click the bar) to collapse or expand it;
 your choice is remembered between sessions.
 
-## Installing it on a phone
-
-cdp-web is a normal web page, so there's nothing to install — but it can be
-added to a home screen and opened like an app, with its own icon and no browser
-chrome around it:
-
-- **iPhone / iPad (Safari)** — the Share button, then **Add to Home Screen**.
-- **Android (Chrome)** — the ⋮ menu, then **Install app** / **Add to Home
-  screen**.
-- **Desktop (Chrome/Edge)** — the install icon at the right of the address bar.
-
-Everything runs locally either way; the app just gets its own window. Your
-work-in-progress patch is autosaved per browser — and on iOS a home-screen copy
-gets its own storage, so the patch in your Safari tab doesn't follow it there.
-Send yourself a share link if you want to carry a patch across.

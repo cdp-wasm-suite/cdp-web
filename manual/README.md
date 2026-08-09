@@ -1,11 +1,16 @@
+> **⚠ WORK IN PROGRESS** — this documentation is a work in progress
 # cdp-web
 
-A retro computing themed node-graph front-end for the **Composers Desktop Project** 
+A retro computing themed node-graph patcher front-end for the **Composers Desktop Project** 
 webassembly port (cdp-wasm).
 
 Sounds are built on a **modular desktop**: each process is a small window you
 wire to others with patch cables, so you can audition a whole chain and tweak it
 as you listen.
+
+Note: the process/nodes are based on a curated [catalog](guide/catalog-and-cdp.md) of
+cdp programs. These provide a layer of abstraction over the cdp programs. It's
+possible to use the raw cdp programs too.
 
 ## How the patcher works
 
@@ -29,8 +34,8 @@ as you listen.
   sound the moment you open them; the quickest way to hear what CDP can do.
 - **[Effect reference](effects/README.md)** — every sound-transforming process,
   grouped by category, with its parameters explained.
-- **[Generators](generators.md)** — synths and noise sources that create audio
-  from scratch.
+- **[Generators](generators/README.md)** — synths and noise sources that create
+  audio from scratch.
 - **[Faust nodes](faust.md)** — write your own DSP (or start from a preset) and
   run it right in the graph.
 - **[Concepts guide](guide/)** — a few ideas that pay off across many
@@ -39,5 +44,26 @@ as you listen.
 - **[Saving & sharing](sharing.md)** — `.cdp` patch files, saving to a chosen
   location, and sharing a whole patch as a link.
 
+The sidebar has two tabs: **Manual**, which is this prose — overview, guides,
+recipes, release notes — and **Reference** (also **Help ▸ Reference…**), which is
+every effect and generator.
+
+Two names for one thing: the menus show a process by the name the catalog gives
+it (*Shudder*), while the reference pages are filed under the CDP program it
+belongs to (`modify`). Reference lists them either way — **Catalog** groups them
+by the categories the Process and Generate menus use, **CDP** lists the program
+pages — and its search box matches both names, so `shudder` and `modify` each
+find the entry.
+
+Every entry carries a **+ Add to patch** button, which drops that process onto
+the desktop as a window (the manual closes so you can see it land). Going the
+other way, right-click any node's title bar and choose **Manual…** to open its
+entry.
+
 New to CDP? Check the [concepts guide](guide/), then browse the
 [effect reference](effects/README.md) and start patching.
+
+Already know CDP? Start with **[the catalog and CDP](guide/catalog-and-cdp.md)** —
+each process here is one *mode* of one CDP program, with its arguments named and
+ranged for a slider. That page shows what the curation decided, and how to run any
+bundled program with CDP's own arguments instead.

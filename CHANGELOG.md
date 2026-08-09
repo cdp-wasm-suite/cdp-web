@@ -5,10 +5,44 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-08-09
+
+De-slop-ification in progress.
+
+### Added
+- **Bumped cdp-wasm to v0.5.1** - see cdp-wasm changelog
+
+- **Much improved documentation** and catalog/raw cdp consistency.
+
+- **Removed KvR competition** from support page
+
+- **Patch sharing via QR code.** in addition to other work.
+
+- **Stored audio can be put back into the patch.** Every row of **Options ▸
+  Stored audio…** now carries a **+** beside its **↓** and **✕**: it opens a new
+  **Source** window holding that sound, so a file used earlier in the session is
+  one click away instead of a trip back to the file picker. Double-clicking a row
+  does the same, and the dialog stays open so several can be added one after
+  another. The audio is read from the store at that moment rather than held in
+  memory by the list, and the new Source adopts the stored copy instead of
+  hashing and writing a second one.
+
+- **A cache note in the transport bar.** Once the browser's audio store passes
+  **100 MB**, a quiet *⛁ 130 MB cached* appears beside the bottom **▶ Play**
+  button and opens **Stored audio…** when clicked. The store is invisible while
+  it works and only ever grows, so a long session could park a few hundred MB on
+  the machine with nothing on screen to say so. It goes away again once the store
+  is back under 100 MB, and never shows in the plugin or the Live extension,
+  where a native host keeps source audio in its own project state.
+
+### Changed
+- **The stored-audio list lines up.** File sizes sit in a fixed right-aligned
+  column, so a 169.9 MB row no longer pushes its waveform left of an 88 KB one.
+
 ## [0.4.0] - 2026-08-03
 
 **Any sound in a patch can now be dragged out of it.** Every window that holds
-audio carries a **⠿** handle: drag it onto the desk for a new Source, or out of
+audio carries a **⠿** handle: drag it onto the desktop for a new Source, or out of
 the window for a `.wav` on your desktop or a DAW track. Source audio also stops
 evaporating on reload — it lives in a content-addressed browser store that the
 patch merely points at.
@@ -139,8 +173,8 @@ npm package. Details below.
   Nothing about how the app runs changes: it was already fully local.
 - **Opening a share link by paste**, two ways: **File ▸ Open shared link…**
   takes a pasted link (it finds the link inside whatever text came with it), and
-  pasting a link onto the desk opens it too — a link is a whole patch, not a
-  fragment to add to the current one, so ⌘V asks and then replaces the desk
+  pasting a link onto the desktop opens it too — a link is a whole patch, not a
+  fragment to add to the current one, so ⌘V asks and then replaces the desktop
   rather than pasting. This is the only route into an app added to an **iOS home
   screen**: iOS opens links in the browser and won't hand them to an installed
   web app, where Android's WebAPK captures its own links and opens directly.
@@ -196,7 +230,7 @@ npm package. Details below.
   patch… keeps the file handle so Save updates the opened file. Rendered WAVs
   (Output ↓ Save, Save result…, waveform-editor export) get an OS save dialog
   per save. Other browsers keep the download flow.
-- **Drop files onto the desk**: audio files become loaded Source windows
+- **Drop files onto the desktop**: audio files become loaded Source windows
   (cascading when several are dropped), Faust **`.dsp`** files become compiled
   Faust devices (generator vs effect picked from the code's audio inputs), and
   `.cdp` files open as the new patch. Unrecognised files log a hint instead of
@@ -290,7 +324,7 @@ npm package. Details below.
 - **All audio computation moved off the main thread.** The CDP engine runs in a
   worker (renders no longer freeze the UI; results are byte-identical), and
   Faust code both compiles *and* renders in a worker — a big DSP no longer
-  locks the desk while it compiles or generates. Both fall back to inline
+  locks the desktop while it compiles or generates. Both fall back to inline
   execution where workers are unavailable.
 - Cancelling a save dialog no longer triggers a fallback download.
 
@@ -348,6 +382,7 @@ generators, effect and PVOC nodes, breakpoint envelopes, Faust devices, the
 sampler keyboard, recipes, and the browsable manual. Also serves as the shared
 UI for the VST plugin and Ableton Live extension.
 
+[0.5.0]: https://github.com/cdp-wasm-suite/cdp-web/releases/tag/v0.5.0
 [0.4.0]: https://github.com/cdp-wasm-suite/cdp-web/releases/tag/v0.4.0
 [0.3.1]: https://github.com/cdp-wasm-suite/cdp-web/releases/tag/v0.3.1
 [0.3.0]: https://github.com/cdp-wasm-suite/cdp-web/releases/tag/v0.3.0

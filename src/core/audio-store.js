@@ -8,7 +8,7 @@
 //
 // Keys are a hash of the bytes, so the same audio stored twice costs one copy.
 // That is the common case rather than a nicety: dragging a node's ⠿ handle onto
-// the desk hands the new Source the *same* Uint8Array, and a patch usually feeds
+// the desktop hands the new Source the *same* Uint8Array, and a patch usually feeds
 // one file into several chains.
 //
 // Everything degrades to a no-op: private-mode browsers, a disabled IndexedDB, a

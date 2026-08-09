@@ -1,14 +1,14 @@
-# Composer's Desktop Plugin
+> **⚠ WORK IN PROGRESS** — this documentation is a work in progress
+# Composer's Desktop Plugin (cdp-plugin)
 
 > **Placeholder page.** This is the home for everything specific to the
 > **plugin** build.
 
-The **Composers Desktop plugin** is an audio plugin (VST3/AU/CLAP) that hosts CDP for
-Web inside its own window. The patcher works exactly as it does in the
-[browser](README.md) — same nodes, cables, [ports](interface.md),
-[recipes](recipes.md) and rendering — with a few plugin-specific differences
-described here.
+The **Composers Desktop plugin** (cdp-plugin) embeds the cdp-web frontend in the UI of
+an audio plug-in (VST3/AU/CLAP) for use inside a DAW.
 
+
+<!-- 
 ## What's different from the browser
 
 - **The render feeds a built-in sampler.** Every time you **Run** an
@@ -39,4 +39,4 @@ sample-rate handling, state persistence, etc.)._
 
 ## Troubleshooting
 
-_Coming soon._
+_Coming soon._  -->

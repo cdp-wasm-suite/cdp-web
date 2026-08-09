@@ -4,7 +4,7 @@
 import {
   $, el, dropdown, openMenuAt, gemSelect, gemAlert, gemPrompt, initTooltips, initTouchGestures, numField, paramRow, paramGrid, fitParamGrid, makeEnvelopeEditor, parseBrk,
   drawWave, drawWaveCache, wavDuration, log, setLogSink, ENVELOPE_PARAMS, axisFlags, makePartialsEditor, saveWavFile,
-  canSaveFile, inEmbeddedHost, wavFileName,
+  canSaveFile, inEmbeddedHost, wavFileName, qrPanel, escCloses,
 } from '../ui/ui.js';
 import { GraphRunner, validateConnection, byId, inEdge, inEdges, portKind, portAccepts, GENERATORS, genById, applyGenerator, envToBrk, envToPoints, layoutGraph } from './graph.js';
 import { FAUST_PRESETS, DEFAULT_CODE, compileFaust, renderFaust } from '../dsp/faust.js';
@@ -16,12 +16,13 @@ import { createKeyboard } from '../ui/keyboard.js';
 import { THEMES, applyTheme, currentTheme, themeColors, FONTS, applyFont, currentFont } from '../ui/themes.js';
 import { initTempo, getBpm, setBpm } from '../data/tempo.js';
 import { fuzzyMatch } from '../data/fuzzy.js';
-import { openManual } from '../ui/manual.js';
+import { openManual, setManualInsert, manualHasPage } from '../ui/manual.js';
 import { openCodeEditor, refreshCodeEditor, setCodeEditorErrors, setCodeEditorWav, closeCodeEditor, codeEditorPreviewWav, isCodeEditorOpen, textEditButton } from '../ui/code-editor.js';
 import { beginNativeDragOut, hostSupportsDragOut, prepareNativeDragOut } from './host-bridge.js';
-import { putWav, getWav, listWavs, removeWav, clearWavs, setStoreDiagnostics } from './audio-store.js';
+import { putWav, getWav, listWavs, removeWav, clearWavs, storeUsage, setStoreDiagnostics } from './audio-store.js';
 import { shareSupported, encodeShare, decodeShare, getShareParam, shareParamFromText, stripShareParam } from './share.js';
 import { resolvePatchView } from './patch-view.js';
+import { rememberNativeReadyReply } from './native-audio-transport.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -323,7 +324,8 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
   // Inside the plugin the graph is per-instance document state owned by the host,
   // not shared browser localStorage (all plugin instances share one origin). We
   // route it to C++ instead — see persist()/readSaved() and the graph handler.
-  const inPlugin = () => typeof IPlugSendMsg === 'function';
+  const inPlugin = () => typeof IPlugSendMsg === 'function'
+    && !window.CDPStudioEmbedded && !isEmbedded();
   // Embedded in a native WebView host (DAW extension) — signalled by the #cdpHost
   // session hash (see host-bridge.js). Together with inPlugin this covers every
   // native WebView we run inside, vs. a plain browser tab.
@@ -417,6 +419,28 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     src.setWav(wav, label || 'from output');
     src.x = x; src.y = y; src.el.style.left = x + 'px'; src.el.style.top = y + 'px';
     recordHistory();
+    return src;
+  }
+  // Set while the stored-audio inspector is open, so adding a sound from it can
+  // tell the list to redraw — the row it came from is now "in this patch".
+  let storeListRefresh = null;
+  // Bring a stored sound into the open patch as a Source (the inspector's + button).
+  // The audio stays in IndexedDB until here, so listing the store never has to hold
+  // it; the new Source then adopts the key rather than hashing and re-writing bytes
+  // the store already has. It lands at the next cascade position, like any other
+  // added window, and comes to the front so it isn't lost behind the dialog.
+  async function addStoredToPatch(key, name) {
+    const rec = await getWav(key);
+    if (!rec?.bytes) { logError('that audio is no longer in the store'); storeListRefresh?.(); return null; }
+    const label = name || rec.name || 'stored audio';
+    const src = spawnSource();
+    src.setWav(rec.bytes, label, { store: false });
+    src.source.wavKey = key;
+    revealNode(src);
+    recordHistory();
+    persist();                       // the key is part of the document
+    log(`added "${label}" from stored audio`);
+    storeListRefresh?.();
     return src;
   }
   // Hand the native host the WAV it should drag out, unless it already has this
@@ -539,8 +563,8 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
       class: opts.class || 'gwin-drag', type: 'button', textContent: '⠿', disabled: true,
       draggable: !hostSupportsDragOut(), style: 'cursor: grab; touch-action: none',
       title: opts.title || (hostSupportsDragOut()
-        ? 'Drag this sound to a DAW, desktop or Finder — Option-drag onto the desk to make a Source'
-        : 'Drag this sound onto the desk to make a new Source — or out to your desktop / Finder'),
+        ? 'Drag this sound to a DAW, desktop or Finder — Option-drag onto the desktop to make a Source'
+        : 'Drag this sound onto the desktop to make a new Source — or out to your desktop / Finder'),
     });
     return attachDragOut(btn, { getWav, getName });
   }
@@ -635,6 +659,7 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     n.source.wavKey = null;
     if (!wav || inNativeHost()) return;
     putWav(wav, n.source.name || '', waveEnvelope(wav)).then((key) => {
+      refreshStoreNote();                 // the store just grew
       if (n.source.wav !== wav) return;   // superseded while we were hashing
       n.source.wavKey = key;
       if (key) persist();                 // the key is part of the document
@@ -644,7 +669,7 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
   // its audio. Missing (another machine, a cleared store) leaves the node empty
   // but named, so it's obvious which file to reopen.
   function restoreSourceAudio(n, key, name, { showWave, apply }) {
-    getWav(key).then((rec) => {
+    return getWav(key).then((rec) => {
       if (!rec || n.source.wav) return;
       n.source.wavKey = key;              // already stored — don't re-put it
       if (rec.wave) showWave(rec.wave);   // the picture first, then the audio
@@ -800,7 +825,7 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
         // dragged-out file says which bank it came from, e.g. "partition-band3".
         const stem = () => { const l = getLabel(); return l ? `${l}-${name.replace(/\.wav$/i, '')}` : name; };
         const dh = makeDragHandle({ getWav: () => bytes, getName: stem },
-          { class: 'gwin-drag bank-drag', title: `Drag "${name}" onto the desk to make a Source — or out to your desktop / Finder` });
+          { class: 'gwin-drag bank-drag', title: `Drag "${name}" onto the desktop to make a Source — or out to your desktop / Finder` });
         dh.disabled = false;
         row.appendChild(dh);
         rows.push({ pb, bytes });
@@ -1080,6 +1105,27 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     return !!best;
   }
 
+  // The other half of the double-click vocabulary: where double-clicking an
+  // output cables it *onward*, double-clicking an input pulls the neighbouring
+  // window to its left *in* — the previous step in the chain. Same scoring, so
+  // the two gestures agree about which windows are adjacent; meeting in the
+  // middle from both ends lands on the same cable.
+  //
+  // Where a socket's kind has a node that makes its signal, an empty one with
+  // nothing to the left spawns that node ready-cabled rather than only logging.
+  function connectInFromNeighbourGesture(n, port) {
+    const target = { node: n.id, port: port.name };
+    // A circle keeps its "give me an envelope" reading: double-clicking one is
+    // how you get a *fresh* Breakpoint for that parameter, and an existing one
+    // can already be fanned out to as many params as you like by hand.
+    if (port.kind === 'breakpoint') { createBreakpointFor(target); return; }
+    if (connectInFromNeighbour(n, port)) return;
+    // Nothing spectral to the left ⇒ build the bridge into the spectral domain
+    // (this also no-ops on a ◇ input that is already fed).
+    if (port.kind === 'spectral') { createPvocAnalyseFor(target); return; }
+    log(`no free ${port.kind} output to the left`);
+  }
+
   // The window (if any) that a node of n's size would land on at (x, y).
   function clashAt(n, x, y) {
     const w = n.el?.offsetWidth || 200, h = n.el?.offsetHeight || 120;
@@ -1268,10 +1314,8 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
       e.preventDefault(); e.stopPropagation();
       if (dir === 'out') {
         (e.shiftKey ? mixIntoMain : connectOutToNeighbour)(n, port);   // shift still goes straight to the Output
-      } else if (dir === 'in' && port.kind === 'breakpoint') {
-        createBreakpointFor({ node: n.id, port: port.name });   // circle mod input → spawn a BPF wired to it
-      } else if (dir === 'in' && port.kind === 'spectral') {
-        createPvocAnalyseFor({ node: n.id, port: port.name });  // ◇ input → cable (or spawn) a PVOC Analyse
+      } else {
+        connectInFromNeighbourGesture(n, port);   // pull in the neighbour to the left (or spawn what makes it)
       }
     });
     n.portEl[port.name] = g;
@@ -1284,10 +1328,12 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     const close = el('button', { class: 'gwin-close', type: 'button', title: 'Close', textContent: '□' });
     const shade = el('button', { class: 'gwin-shade', type: 'button', title: 'Roll up / down', textContent: '▾' });
     const titleEl = el('span', { class: 'gwin-title' });
-    // Optional ? button (CDP help): toggles a lazily-loaded usage panel in the body.
-    const help = opts.help ? el('button', { class: 'gwin-help', type: 'button', title: 'CDP help', textContent: '?' }) : null;
+    // Optional ? button: opens this node's entry in the manual's Reference. CDP's
+    // own usage text — the slide-out panel this button used to toggle — is a click
+    // away on the right-click menu (CDP help), where it can still be toggled off.
+    const help = opts.help ? el('button', { class: 'gwin-help', type: 'button', title: 'Open this process in the manual', textContent: '?' }) : null;
     // Optional ⠿ handle: drag this node's rendered sound out to the desktop/DAW, or
-    // onto the desk to clone it into a new Source. Lives in the title bar so every
+    // onto the desktop to clone it into a new Source. Lives in the title bar so every
     // node that renders audio offers it in the same place, at no cost in body
     // height — and so it still works on a rolled-up window.
     const drag = opts.dragOut ? makeDragHandle(opts.dragOut) : null;
@@ -1301,10 +1347,13 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     const bodyDiv = el('div', { class: 'gwin-body' }, body);
     const win = el('div', { class: 'gwin' }, bar, bodyDiv, portsIn, portsOut);
     if (help) {
-      // Help slides out as a panel on the window's right edge (not in the body),
-      // so opening it never grows the node vertically.
+      // CDP's usage text slides out as a panel on the window's right edge (not in
+      // the body), so opening it never grows the node vertically. Opened from the
+      // right-click menu, and closed from either there or its own ✕ — the ? button
+      // no longer toggles it, so the panel has to carry a way out itself.
       const text = el('pre', { class: 'help-text' });
-      const panel = el('div', { class: 'gwin-help-panel' }, text);
+      const shut = el('button', { class: 'gwin-help-close', type: 'button', title: 'Close', textContent: '✕' });
+      const panel = el('div', { class: 'gwin-help-panel' }, shut, text);
       win.appendChild(panel);
       let open = false;
       const load = async (force) => {
@@ -1314,10 +1363,16 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
       };
       // Re-fetch on each open so nodes whose program can change (Raw process)
       // stay current; opts.help is memoised, so static nodes resolve instantly.
-      help.addEventListener('click', (e) => {
+      const setHelpOpen = (v) => { open = v; win.classList.toggle('help-open', open); if (open) load(false); };
+      n.toggleHelpPanel = () => setHelpOpen(!open);
+      shut.addEventListener('click', (e) => { e.stopPropagation(); setHelpOpen(false); });
+      help.addEventListener('click', async (e) => {
         e.stopPropagation();
-        open = !open; win.classList.toggle('help-open', open); help.classList.toggle('on', open);
-        if (open) load(false);
+        const doc = manualTarget(n);
+        // A Raw process can be pointed at a program the docs don't cover; showing
+        // CDP's usage beats dumping the reader on the manual's home page.
+        if (doc && await manualHasPage(doc.slug)) openManual(doc.slug, doc.anchor, doc.mode);
+        else setHelpOpen(true);
       });
       // Live-refresh the open panel when the node's program/mode changes.
       n.refreshHelp = () => { if (open) load(true); };
@@ -1417,17 +1472,44 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     persist();                                 // a label change is worth saving / undoing
   }
 
+  // Where this node is documented: { slug, anchor, mode }, or null if nothing
+  // covers it. The manual's pages are named after CDP programs, so without this a
+  // reader has to know that "Shudder" is a mode of `modify` before they can look
+  // it up.
+  //
+  // `mode` asks the Reference to list itself in the vocabulary the node speaks:
+  // a catalog effect or generator opens at its own entry among the catalog names,
+  // while a Raw process — which addresses CDP directly — opens the whole program
+  // page among the program listing. The unresolvable cases (a Raw process pointed
+  // at a program the docs don't cover) fall back to the home page inside
+  // openManual; the ? button checks first and shows CDP's usage text instead.
+  function manualTarget(n) {
+    if (n.type === 'transform') {
+      const eff = byId[n.effectId];
+      return eff ? { slug: `effects/${eff.program}`, anchor: eff.id, mode: 'catalog' } : null;
+    }
+    if (n.type === 'generator') {
+      const gen = genById[n.genId];
+      return gen ? { slug: `generators/${gen.program}`, anchor: gen.id, mode: 'catalog' } : null;
+    }
+    if (n.type === 'rawTransform') return { slug: `effects/${n.raw.program}`, anchor: null, mode: 'program' };
+    if (n.type === 'faust') return { slug: 'faust', anchor: null };
+    if (n.type === 'breakpoint') return { slug: 'guide/breakpoints', anchor: null };
+    if (n.type === 'pick' || n.type === 'gather') return { slug: 'guide/banks-and-multichannel', anchor: null };
+    if (n.type === 'pvocAnalyse' || n.type === 'pvocResynth') return { slug: 'guide/spectral-pvoc', anchor: null };
+    return null;
+  }
+
   // Right-click menu for a node's title bar. Selects the node first (unless it's
   // already part of a multi-selection), so commands act on the expected target —
   // mirroring the drag/click selection rules. Single-node-only items (Rename,
-  // Roll up, CDP help) are hidden when several windows are selected.
+  // Roll up, CDP help, Manual…) are hidden when several windows are selected.
   function openNodeMenu(n, x, y) {
     if (!selection.has(n.id)) { setSelection([n.id]); setFocus(n.id); }
     const many = selection.size > 1 && selection.has(n.id);
     const count = selection.size;
     const win = n.el;
     const shade = win.querySelector('.gwin-shade');
-    const help = win.querySelector('.gwin-help');
     openMenuAt(x, y, () => {
       const items = [];
       if (!many) items.push({ label: 'Rename…', action: () => renameNode(n) });
@@ -1436,7 +1518,9 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
       items.push({ sep: true });
       if (!many && shade) items.push({ label: win.classList.contains('shaded') ? 'Roll down' : 'Roll up', action: () => shade.click() });
       items.push({ label: 'Bring to front', action: () => { win.style.zIndex = ++zTop; } });
-      if (!many && help) items.push({ label: 'CDP help', checked: win.classList.contains('help-open'), action: () => help.click() });
+      if (!many && n.toggleHelpPanel) items.push({ label: 'CDP help', checked: win.classList.contains('help-open'), action: () => n.toggleHelpPanel() });
+      const doc = many ? null : manualTarget(n);
+      if (doc) items.push({ label: 'Manual…', action: () => openManual(doc.slug, doc.anchor, doc.mode) });
       // Only on nodes with curated parameter ranges to leave behind.
       if (!many && n.setUnlocked) {
         items.push({ sep: true });
@@ -1591,10 +1675,22 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     const setWav = (wav, label, { store = true } = {}) => { n.source.wav = wav; n.waveCache = null; n.source.name = label; n.source.resampledFrom = null; drawWave(wave, wav); status.textContent = label; transport.setEnabled(true); n.setDraggable(true); renderInfo(); if (store) rememberSourceAudio(n, wav); markDirty(); };
     n.setWav = setWav;   // lets the waveform editor promote a region into this Source
 
+    // Any async fill (store restore, URL fetch, file decode, legacy regen) parks
+    // its promise on n.loading while in flight. The graph runner awaits it before
+    // reading the Source, so a play pressed right after a reload — before a large
+    // file is back from the store — waits for the audio instead of failing with
+    // "Source is empty". Errors are already reported by each fill; here they just
+    // resolve the wait (the run then gives the accurate empty-Source message).
+    const trackLoad = (p) => {
+      const q = p.catch(() => {}).finally(() => { if (n.loading === q) n.loading = null; });
+      n.loading = q;
+      return p;
+    };
+
     const fileInput = el('input', { type: 'file', accept: 'audio/*,.wav', style: 'display:none' });
     // Picking a file demotes a url source back to kind:'file' — otherwise the
     // saved patch would still carry the url and reload the wrong audio.
-    fileInput.onchange = async (e) => { const f = e.target.files[0]; if (!f) return; try { const wav = await fileToWav(f); n.source.kind = 'file'; n.source.url = null; setWav(wav, f.name); } catch (err) { logError(err.message); } };
+    fileInput.onchange = (e) => { const f = e.target.files[0]; if (!f) return; trackLoad((async () => { try { const wav = await fileToWav(f); n.source.kind = 'file'; n.source.url = null; setWav(wav, f.name); } catch (err) { logError(err.message); } })()); };
     const choose = el('button', { type: 'button', textContent: 'Choose file…' });
     choose.onclick = () => fileInput.click();
     // Fetch audio from a web address into this Source. URL sources are the one
@@ -1617,7 +1713,7 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     urlBtn.onclick = async () => {
       const u = await gemPrompt('Audio file URL<br><span class="muted">WAV/AIFF load directly; other formats decode via the browser.<br>The file’s server must allow cross-origin (CORS) fetches.</span>',
         n.source.url || '', { ok: 'Load', placeholder: 'https://example.com/sound.wav', examples: DEMO_SOUNDS });
-      if (u) loadFromUrl(u);
+      if (u) trackLoad(loadFromUrl(u));
     };
     const infoBtn = el('button', { type: 'button', class: 'secondary', textContent: 'ⓘ', title: 'Show audio file format (sample rate, bit depth, channels, duration)' });
     infoBtn.onclick = () => { infoOpen = !infoOpen; renderInfo(); };
@@ -1642,17 +1738,17 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     makeWindow(n, 'Source', body, { dragOut: { getWav: () => n.source.wav, getName: () => n.name || n.source.name || 'source' } });
     // A url source fetches and decodes itself on load, so a recipe or shared
     // patch renders without a manual file pick.
-    if (init && init.kind === 'url' && init.url) loadFromUrl(init.url, init.name);
+    if (init && init.kind === 'url' && init.url) trackLoad(loadFromUrl(init.url, init.name));
     // Restoring a saved patch: legacy tone/pulse sources from older patches
     // regenerate their audio once.
     if (init && (init.kind === 'tone' || init.kind === 'pulses')) {
       n.source.kind = init.kind;
-      (async () => {
+      trackLoad((async () => {
         try {
           const wav = init.kind === 'pulses' ? genPulses(init.freq, init.dur) : await genTone(init.freq, init.dur);
           setWav(wav, `${init.kind} ${init.freq}Hz ${init.dur}s`);
         } catch (e) { logError(e.message); }
-      })();
+      })());
     }
     // Plugin host state can carry the source's WAV bytes inline (small samples only),
     // so a reloaded file source restores its audio + waveform instead of reopening
@@ -1671,10 +1767,10 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
       if (n.waveCache) showCached(n.waveCache);
       // Browser: audio and waveform both come from the local store, keyed by content.
       if (init.audioKey) {
-        restoreSourceAudio(n, init.audioKey, init.name, {
+        trackLoad(restoreSourceAudio(n, init.audioKey, init.name, {
           showWave: showCached,
           apply: (bytes, name) => setWav(bytes, name, { store: false }),
-        });
+        }));
       }
     } else if (n.waveCache) {
       drawWaveCache(wave, n.waveCache);
@@ -2491,7 +2587,7 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
       }
       return out;
     };
-    makeWindow(n, 'Raw process', body, { help: () => fetchHelp(n.raw.program, rawMode()), dragOut: retainRenderedAudio(n, 'raw') });
+    makeWindow(n, 'Raw CDP process', body, { help: () => fetchHelp(n.raw.program, rawMode()), dragOut: retainRenderedAudio(n, 'raw') });
     return n;
   }
 
@@ -2626,6 +2722,10 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     const doRun = async () => {
       runBtn.disabled = true; runBtn.textContent = 'Running…';
       try {
+        // Sources still filling (a reload's store restore, a URL fetch) are
+        // awaited by the runner; say so while it's the load we're waiting on.
+        const pending = [...patch.nodes.values()].map((x) => x.loading).filter(Boolean);
+        if (pending.length) { runBtn.textContent = 'Loading…'; await Promise.all(pending); runBtn.textContent = 'Running…'; }
         const res = await runner.run(patch, n.id);
         n.stale = lastResultStale = false;
         runBtn.classList.remove('stale'); n.el.classList.remove('stale'); wave.classList.remove('stale');
@@ -2853,11 +2953,11 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     persist();
     savePatch();
   }
-  // Encode the whole patch into a shareable link (#patch=…, see share.js), then
-  // explain what does and doesn't travel in it — and let it be named — before
-  // handing it over. Disk-picked audio can't travel in a URL, so the dialog names
-  // the Sources that will arrive empty; url/tone/pulse sources and generators
-  // restore themselves.
+  // Encode the whole patch into a shareable link (#patch=…, see share.js) and put
+  // it up as a QR code — the shortest path from this screen to the phone next to
+  // it. What does and doesn't travel is folded behind the dialog's ?; the one
+  // caveat that depends on *this* patch stays in plain sight, since disk-picked
+  // audio can't travel in a URL and those Sources will arrive empty.
   async function shareLink() {
     if (!shareSupported()) { await gemAlert('This browser can’t build share links (it lacks CompressionStream).'); return; }
     const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -2880,28 +2980,44 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     const initial = patchMeta?.name || '';
     const url0 = await linkFor(initial);
     const fileSrcs = [...patch.nodes.values()].filter((n) => n.type === 'source' && n.source.kind === 'file' && n.source.wav);
-    let msg = 'A share link carries the <b>whole patch</b> — every window, cable and setting — packed into the link itself. '
-      + 'Nothing is uploaded: the link <b>is</b> the patch.<br><br>'
-      + 'Audio is the exception. A Source loaded from disk opens <b>empty</b> for whoever follows the link; '
-      + 'one loaded with the <b>URL…</b> button stores its address and arrives with its sound.';
+    let msg = 'Scan to open this patch on another device.';
     if (fileSrcs.length) {
       const names = fileSrcs.map((n) => `<b>${esc(n.source.name || n.id)}</b>`).join(', ');
       msg += `<br><br>In this patch, ${names} came from disk — `
         + `${fileSrcs.length === 1 ? 'that Source will open' : 'those Sources will open'} empty.`;
     }
-    msg += '<br><br>Name the patch — the name rides along, and this copy keeps it too:';
+    const nameLabel = 'Patch name:';
+    const details ='A share link carries the <b>whole patch</b> — every window, cable and setting — packed into the link itself. '
+      + 'Nothing is uploaded: the link <b>is</b> the patch.<br><br>'
+      + 'Audio is the exception. A Source loaded from disk opens <b>empty</b> for whoever follows the link; '
+      + 'one loaded with the <b>URL…</b> button stores its address and arrives with its sound.<br><br>'
+      + 'A long patch makes a dense code — if a camera struggles with it, copy the link instead.';
+    // The code is of the link, so it is rebuilt whenever the name changes it. A
+    // token guards against a slow encode landing after a later keystroke's.
+    const qr = qrPanel('This patch is too big for a QR code — copy the link instead.');
+    qr.show(url0);
+    let latest = initial;
     // The platform share sheet (phones, and macOS Safari) beats the clipboard for
     // getting a link into a message; where there's no sheet, Copy is the whole flow.
     const canSheet = typeof navigator.share === 'function' && (!navigator.canShare || navigator.canShare({ url: url0 }));
-    const sheetTitle = (name) => (name ? `${name} — CDP for Web` : 'CDP for Web patch');
+    const sheetTitle = (name) => (name ? `${name} — cdp-web` : 'cdp-web patch');
     let sheet = null, copied = null, warm = 0;
     const { choice, value: name } = await gemPrompt(msg, initial, {
       icon: '↗',
       placeholder: 'untitled patch',
+      content: qr.node,
+      label: nameLabel,
+      details,
       // On a phone this dialog is mostly there to be read and pressed; focusing
       // the name field first would put the keyboard over it.
       autofocus: !matchMedia('(pointer: coarse)').matches,
-      onInput: (n) => { clearTimeout(warm); warm = setTimeout(() => { linkFor(n).catch(() => { /* pressing will retry */ }); }, 250); },
+      onInput: (n) => {
+        latest = n;
+        clearTimeout(warm);
+        warm = setTimeout(() => {
+          linkFor(n).then((u) => { if (latest === n) qr.show(u); }).catch(() => { /* pressing will retry */ });
+        }, 250);
+      },
       buttons: [
         { label: 'Cancel', value: 'cancel' },
         { label: 'Copy link', value: 'copy', primary: !canSheet, press: (n) => { const u = links.get(n); if (u) copied = navigator.clipboard?.writeText(u); } },
@@ -2949,6 +3065,25 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     persist();
     log('loaded shared patch from link.');
     return true;
+  }
+  // A share link reaching an app that is *already running*, rather than one
+  // booting at that address. Two ways in: the OS handing a captured link to an
+  // installed PWA (launchQueue's targetURL — with `focus-existing` the window is
+  // focused and never navigated, so nothing else would notice), and the address
+  // gaining a #patch= without a reload (a link pasted into the address bar of a
+  // tab already here). Boot handles the address it started with; this handles
+  // every arrival after that, and the payload guard keeps a link delivered twice
+  // — captured *and* navigated — from asking twice.
+  let lastShareParam = null;
+  async function openShareFromUrl(text) {
+    if (isEmbedded() || inPlugin() || inNativeHost()) return;
+    const payload = shareParamFromText(text);
+    if (!payload || payload === lastShareParam) return;
+    lastShareParam = payload;
+    await openSharePayload(payload);
+    // Whether or not it was opened: the address shouldn't imply a link is still
+    // pending. replaceState, so this can't loop back through hashchange.
+    stripShareParam();
   }
   // File ▸ Open shared link… — paste a link in rather than following it. This is
   // the only way into an app added to an iOS home screen: iOS opens links in the
@@ -3226,6 +3361,9 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     { sep: true },
     { label: 'Add audio file source', action: () => spawnSource() },
     { label: 'Add audio file output', action: () => spawnOutput() },
+    // The low-level escape hatch sits with the other "add a window" commands
+    // rather than in Process, which is the effect catalogue proper.
+    { label: 'Add raw CDP process', action: () => spawnRaw() },
     { sep: true },
     { label: 'Open patch…', action: () => openPatch() },
     // Kept even in a native host: a link can't be *made* there, but one that
@@ -3318,6 +3456,28 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     tbarPlay.addEventListener('click', () => { document.activeElement?.blur?.(); toggleTransport(); });
     player.on(syncTransportBar);   // follows the shared player, as a node's transport does
   }
+  // The local audio store is invisible while it works, and it only ever grows: a
+  // long session of dropped files and dragged-out renders can quietly park a few
+  // hundred MB on the machine. Past this much, the bottom bar says so and offers
+  // the way to deal with it. Well under the store's own 512 MB cap — a note, not
+  // an alarm — and browser-only, since a native host keeps source audio itself.
+  const STORE_NOTE_BYTES = 100 * 1024 * 1024;
+  const tbarNote = $('tbarNote');
+  const fmtStoreSize = (b) => (b >= 1073741824 ? `${(b / 1073741824).toFixed(1)} GB` : `${Math.round(b / 1048576)} MB`);
+  async function refreshStoreNote() {
+    if (!tbarNote || inNativeHost()) return;
+    let bytes = 0;
+    try { ({ bytes } = await storeUsage()); } catch { return; }   // store unavailable: nothing to report
+    tbarNote.hidden = bytes < STORE_NOTE_BYTES;
+    if (tbarNote.hidden) return;
+    const size = fmtStoreSize(bytes);
+    tbarNote.textContent = `⛁ ${size} cached`;
+    tbarNote.title = `This browser is holding ${size} of Source audio — click to review or clear it`;
+  }
+  tbarNote?.addEventListener('click', () => { document.activeElement?.blur?.(); storedAudioDialog(); });
+  // Off the boot path: the first look costs a pass over the store's metadata, and
+  // nothing about it is urgent.
+  setTimeout(() => { refreshStoreNote(); }, 2000);
   addEventListener('keydown', (e) => {
     if (e.code !== 'Space' || e.metaKey || e.ctrlKey || e.altKey) return;
     const ae = document.activeElement;
@@ -3353,7 +3513,8 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     { sep: true },   // a rule, not a group header — the Faust devices aren't CDP programs
     { label: 'Faust generator', action: () => spawnFaust('generator') },
   ]);
-  // Process menu: a breakpoint-envelope generator, the sound-domain effects, + raw CLI.
+  // Process menu: a breakpoint-envelope generator + the sound-domain effects.
+  // (The raw-CLI escape hatch lives in File, with the other Add… commands.)
   dropdown($('m-process'), () => {
     const items = [
       { group: 'Control' },
@@ -3370,8 +3531,6 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     }
     items.push({ sep: true });   // a rule, not a group header — Faust isn't a CDP category
     items.push({ label: 'Faust effect', action: () => spawnFaust('effect') });
-    items.push({ sep: true });
-    items.push({ label: 'Raw process (any program)…', action: () => spawnRaw() });
     return items;
   });
   // PVOC menu: the domain I/O bridges at the top, then every spectral process
@@ -3389,6 +3548,14 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
       for (const e of spec) items.push({ label: e.label, action: () => spawnTransform(e.id) });
     }
     return items;
+  });
+  // The manual's Reference puts an "Add to patch" button on every effect and
+  // generator entry; this is how it drops one on the desktop. Same spawners the
+  // menus use, so the node lands where a menu-added one would.
+  setManualInsert((kind, id) => {
+    const n = kind === 'generator' ? spawnGenerator(id) : spawnTransform(id);
+    log(`added ${kind === 'generator' ? genById[id]?.label : byId[id]?.label} from the manual`);
+    return n;
   });
   async function setTempoDialog() {
     const res = await gemPrompt('Project tempo <span style="opacity:.6">(20–960 BPM)</span>', String(getBpm()), { ok: 'Set' });
@@ -3431,11 +3598,16 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     const fmtSize = (b) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
     const fmtWhen = (ts) => new Date(ts).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
     let playOff = null;
-    const close = () => { playOff?.(); card.hidePopover(); card.remove(); };
+    const close = () => { detachEsc(); playOff?.(); storeListRefresh = null; card.hidePopover(); card.remove(); };
+    // Keys the open patch depends on — deleting one empties that Source on reload.
+    // Read live rather than captured, so a sound added a moment ago still gets the
+    // warning it deserves.
+    const usedKeys = () => new Set([...patch.nodes.values()]
+      .filter((n) => n.type === 'source' && n.source.wavKey).map((n) => n.source.wavKey));
     const refresh = async () => {
       const rows = await listWavs();
-      // Keys the open patch depends on — deleting one empties that Source on reload.
-      const used = new Set([...patch.nodes.values()].filter((n) => n.type === 'source' && n.source.wavKey).map((n) => n.source.wavKey));
+      const used = usedKeys();
+      const scroll = list.scrollTop;   // a redraw after an add or a delete keeps your place
       list.replaceChildren();
       if (!rows.length) list.appendChild(el('div', { class: 'store-row muted', textContent: 'nothing stored' }));
       const tokens = [];
@@ -3461,10 +3633,21 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
         const thumb = el('canvas', { class: 'store-wave' });
         if (r.wave) requestAnimationFrame(() => drawWaveCache(thumb, r.wave));
         else thumb.style.visibility = 'hidden';
+        const rowName = r.name || '(unnamed)';
+        // + puts the sound back to work: a new Source window holding it, sharing the
+        // stored copy. The counterpart to ↓, which takes it out to a file instead.
+        const add = el('button', { class: 'secondary', type: 'button', textContent: '+', title: 'Add to the patch as a Source' });
+        add.onclick = () => addStoredToPatch(r.key, r.name);
         row.append(play,
-          el('span', { class: 'store-name', textContent: r.name || '(unnamed)', title: `${r.name || '(unnamed)'}\nstored ${fmtWhen(r.ts)}\n${r.key}` }),
+          el('span', { class: 'store-name', textContent: rowName, title: `${rowName}\nstored ${fmtWhen(r.ts)}\n${r.key}` }),
           thumb,
-          el('span', { class: 'store-size', textContent: fmtSize(r.len || 0) }));
+          el('span', { class: 'store-size', textContent: fmtSize(r.len || 0) }),
+          add);
+        // Double-click a row does the same, since the list reads like a file browser.
+        row.addEventListener('dblclick', (e) => {
+          if (e.target.closest('button')) return;      // ▶ / + / ↓ / ✕ have their own jobs
+          addStoredToPatch(r.key, r.name);
+        });
         if (canSaveFile()) {
           const save = el('button', { class: 'secondary', type: 'button', textContent: '↓', title: 'Save to disk' });
           save.onclick = async () => {
@@ -3475,7 +3658,7 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
         }
         const del = el('button', { class: 'secondary', type: 'button', textContent: '✕', title: 'Remove from the store' });
         del.onclick = async () => {
-          if (used.has(r.key)) {
+          if (usedKeys().has(r.key)) {
             const go = await gemAlert(`<b>${r.name || 'This sound'}</b> is used by a Source in the open patch.<br>Removing it means that Source reopens empty.`,
               [{ label: 'Cancel', value: false }, { label: 'Remove', value: true, primary: true }]);
             if (!go) return;
@@ -3490,7 +3673,9 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
       const bytes = rows.reduce((a, r) => a + (r.len || 0), 0);
       total.replaceChildren(
         el('span', { textContent: `${rows.length} file${rows.length === 1 ? '' : 's'} · ${fmtSize(bytes)}` }),
-        el('span', { class: 'muted', textContent: 'kept on this machine only' }));
+        el('span', { class: 'muted', textContent: 'stored in browser cache' }));
+      list.scrollTop = scroll;
+      refreshStoreNote();   // a removal here can take the bottom-bar note away
       playOff?.();
       playOff = player.on(() => { for (const t of tokens) t.play.textContent = t.bytes && player.isPlaying(t.bytes) ? '■' : '▶'; });
     };
@@ -3505,17 +3690,18 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     };
     const doneBtn = el('button', { class: 'ok', type: 'button', textContent: 'Done' });
     doneBtn.onclick = close;
-    card.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); close(); } });
+    const detachEsc = escCloses(card, close);
     card.append(
       el('div', { class: 'gem-dialog-inner' },
         el('div', { class: 'gem-dialog-icon', textContent: '⛁' }),
         el('div', { class: 'gem-dialog-msg', style: 'flex:1;min-width:0' },
-          el('div', { html: 'Audio kept for this browser, so <b>Source</b> windows come back with their sound after a reload.' }),
+          el('div', { html: 'Audio Cache' }),
           list, total)),
       el('div', { class: 'gem-dialog-btns' }, clearBtn, doneBtn));
     document.body.appendChild(card);
     card.showPopover();
     doneBtn.focus();
+    storeListRefresh = refresh;   // adding a sound from this list redraws it (see addStoredToPatch)
     await refresh();
   }
   if ($('m-options')) dropdown($('m-options'), () => [
@@ -3531,7 +3717,7 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
   function reportBug() {
     const context = inPlugin() ? 'CDP plugin (VST/AU in a DAW)'
       : isEmbedded() ? 'CDP extension (Ableton Live)'
-      : 'CDP for Web (browser)';
+      : 'cdp-web (browser)';
     const q = new URLSearchParams({
       template: 'bug_report.yml',
       version: window.CDP_VERSION || '',
@@ -3541,8 +3727,12 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
   }
   if ($('m-help')) dropdown($('m-help'), () => [
     { label: 'Manual…', action: () => openManual() },
+    // Same window, its Reference tab: every effect and generator, listed by
+    // catalog name or by CDP program.
+    { label: 'Reference…', action: () => openManual('effects/README') },
     { label: 'Release notes…', action: () => openManual('release-notes') },
     { label: 'Report a bug…', action: () => reportBug() },
+    { label: 'Bulletin board…', action: () => window.open('https://github.com/orgs/cdp-wasm-suite/discussions', '_blank', 'noopener') },
     { label: 'About cdp-web…', action: () => $('aboutBox').showPopover() },
   ]);
   // On narrow screens the Atari logo opens a compact desk menu. Reuse the live
@@ -3589,10 +3779,11 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     add('Gather to bank', 'Control', () => spawnGather(), 'bank collect combine inputs multi rejoin multimix panorama');
     const pvA = add('PVOC Analyse', 'PVOC', () => spawnPvoc('anal'), 'spectral fft analysis audio to spectral');
     const pvS = add('PVOC Resynthesise', 'PVOC', () => spawnPvoc('synth'), 'spectral fft resynthesis spectral to audio');
-    // Pin the audio-file source + the PVOC I/O to the top of the unfiltered list,
-    // in this order, with a divider under the group.
-    [src, pvA, pvS].forEach((it, i) => { it.pinned = true; it.pinOrder = i; });
-    add('Raw process (any program)…', 'Raw', () => spawnRaw(), 'cli command custom');
+    const raw = add('Raw CDP process…', 'Raw', () => spawnRaw(), 'cli command custom');
+    // Pin the audio-file source + the raw escape hatch + the PVOC I/O to the top
+    // of the unfiltered list, in this order, with a divider under the group. The
+    // source/raw pair matches the File menu's Add… group.
+    [src, raw, pvA, pvS].forEach((it, i) => { it.pinned = true; it.pinOrder = i; });
     for (const g of GENERATORS) add(g.label, 'Generator', () => spawnGenerator(g.id), `${g.id} ${g.blurb || ''} synth`);
     add('Faust generator', 'Faust', () => spawnFaust('generator'), 'faust dsp synth code program');
     const ffx = add('Faust effect', 'Faust', () => spawnFaust('effect'), 'faust dsp effect code program');
@@ -3848,6 +4039,12 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
   // A share link (#patch=…, see share.js) — ignored inside native hosts, whose
   // state comes from #cdpHost / the plugin's own graph push instead.
   const shareParam = embedded || inPlugin() ? null : getShareParam();
+  // Claim it now, synchronously: a PWA launched *by* this link also gets it
+  // through the launch queue a moment later, and only one of the two should ask.
+  lastShareParam = shareParam;
+  // A link arriving after boot — pasted into the address bar of a tab already
+  // here (a same-document navigation: no reload, so nothing else fires).
+  addEventListener('hashchange', () => { openShareFromUrl(location.hash); });
   const saved = embedded ? null : readSaved();     // a patch from a previous session, if any
   // Installed-PWA file handling (manifest `file_handlers`, Chrome/Edge desktop):
   // double-clicking a .cdp in Finder/Explorer launches the app with the file in
@@ -3861,7 +4058,10 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
   if (!inNativeHost() && 'launchQueue' in window) {
     window.launchQueue.setConsumer(async (params) => {
       const h = params?.files?.[0];
-      if (!h) return;
+      // No file means a captured link (a scanned QR, a link followed elsewhere)
+      // routed to this window by `focus-existing`, which focuses without
+      // navigating — so the URL only exists here, in targetURL.
+      if (!h) { if (params?.targetURL) openShareFromUrl(params.targetURL); return; }
       launchPending = true;
       try {
         loadPatch(JSON.parse(await (await h.getFile()).text()), { resetSample: true });
@@ -3950,7 +4150,14 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     // Tell the host we're ready to receive initial state. The host defers its param
     // and graph pushes until this arrives, because the WebView page load races the
     // host's poll timer — pushing before our globals/handlers exist would be lost.
-    try { IPlugSendMsg({ msg: 'SUIRDY' }); } catch { /* bridge unavailable */ }
+    try {
+      const readyReply = IPlugSendMsg({ msg: 'SUIRDY' });
+      if (readyReply && typeof readyReply.then === 'function') {
+        readyReply.then(rememberNativeReadyReply).catch(() => {});
+      } else {
+        rememberNativeReadyReply(readyReply);
+      }
+    } catch { /* bridge unavailable */ }
   }
   // Minimal host-integration surface, consumed by host-bridge.js when the app is
   // embedded in a native WebView host (e.g. a DAW extension). Inert in normal use.

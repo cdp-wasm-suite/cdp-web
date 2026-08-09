@@ -6,6 +6,7 @@ import { themeColors } from './themes.js';
 import { getBpm, secToBeats, beatsToSec, DIVISIONS, divisionValue } from '../data/tempo.js';
 import { installPopoverFallback } from './popover-fallback.js';
 import { textEditButton } from './code-editor.js';
+import { qrMatrix, drawQr } from './qrcode.js';
 
 // Shim the Popover API before any menu/dialog/tooltip is built — no-op where
 // the WebView supports it natively (see popover-fallback.js for the why).
@@ -201,7 +202,25 @@ export function setLogSink(fn) {
   if (fn) { for (const l of _logBuf) fn(l); _logBuf.length = 0; }
 }
 
-// ---- GEM modal alert / confirm ----------------------------------------------
+// ---- GEM modal dialogs ------------------------------------------------------
+// Escape closes the dialog. The listener has to sit on the document, not on the
+// card: these are manual popovers (no built-in light dismiss), and clicking any
+// non-focusable part of one — its text, a picture — drops focus to <body>, from
+// where a key event never reaches the card. Only the topmost dialog answers, so
+// an alert raised over another dialog closes just itself. Returns a detach fn.
+export function escCloses(card, close) {
+  const onKey = (e) => {
+    if (e.key !== 'Escape') return;
+    const open = document.querySelectorAll('.gem-dialog:popover-open');
+    if (open[open.length - 1] !== card) return;
+    e.preventDefault();
+    e.stopPropagation();
+    close();
+  };
+  document.addEventListener('keydown', onKey, true);
+  return () => document.removeEventListener('keydown', onKey, true);
+}
+
 // buttons: [{ label, value, primary? }]. Returns a Promise of the chosen value
 // (null on Escape). message may contain simple HTML (<b>, <br>). `icon` replaces
 // the ⚠ in the corner box, for dialogs that explain rather than warn.
@@ -211,13 +230,13 @@ export function gemAlert(message, buttons = [{ label: 'OK', value: true, primary
     card.setAttribute('popover', 'manual');
     const msg = el('div', { class: 'gem-dialog-msg', html: message });
     const btns = el('div', { class: 'gem-dialog-btns' });
-    const done = (v) => { card.hidePopover(); card.remove(); resolve(v); };
+    const done = (v) => { detachEsc(); card.hidePopover(); card.remove(); resolve(v); };
     for (const b of buttons) {
       const btn = el('button', { type: 'button', class: b.primary ? 'ok' : 'secondary', textContent: b.label });
       btn.onclick = () => done(b.value);
       btns.appendChild(btn);
     }
-    card.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); done(null); } });
+    const detachEsc = escCloses(card, () => done(null));
     card.append(el('div', { class: 'gem-dialog-inner' }, el('div', { class: 'gem-dialog-icon', textContent: icon }), msg), btns);
     document.body.appendChild(card);
     card.showPopover();
@@ -239,7 +258,11 @@ export function gemAlert(message, buttons = [{ label: 'OK', value: true, primary
 // `onInput(text)` fires as the field is edited, for work worth starting early.
 // `autofocus: false` leaves the field unfocused — worth it on a touch device when
 // the dialog is mostly there to be read, since focusing raises the keyboard over it.
-export function gemPrompt(message, value = '', { ok = 'OK', placeholder = '', examples = [], buttons = null, icon = '✎', onInput = null, autofocus = true } = {}) {
+// `content` — a node between the message and the field, for a dialog whose
+// subject is a picture rather than a sentence; `label` is HTML that stays
+// directly above the field, on the far side of it. `details` — HTML folded away
+// behind a ? button, so the long explanation is one press away, not in the way.
+export function gemPrompt(message, value = '', { ok = 'OK', placeholder = '', examples = [], buttons = null, icon = '✎', onInput = null, autofocus = true, content = null, label = '', details = '' } = {}) {
   return new Promise((resolve) => {
     const card = el('div', { class: 'gem-dialog' });
     card.setAttribute('popover', 'manual');
@@ -253,7 +276,7 @@ export function gemPrompt(message, value = '', { ok = 'OK', placeholder = '', ex
         return b;
       })) : null;
     const btns = el('div', { class: 'gem-dialog-btns' });
-    const done = (v) => { card.hidePopover(); card.remove(); resolve(v); };
+    const done = (v) => { detachEsc(); card.hidePopover(); card.remove(); resolve(v); };
     // Custom buttons resolve { choice, value }; the default pair keeps the plain
     // string / null contract every other caller was written against.
     const text = () => input.value.trim();
@@ -264,6 +287,16 @@ export function gemPrompt(message, value = '', { ok = 'OK', placeholder = '', ex
       if (buttons) done(b ? { choice: b.value, value: text() } : { choice: null, value: null });
       else done(b && !b.cancel ? text() : null);
     };
+    // The folded-away explanation, and the ? that unfolds it. It leads the button
+    // row: a press that reveals reading matter shouldn't sit next to the presses
+    // that act, and it must never be what Enter lands on.
+    const more = details ? el('div', { class: 'gem-dialog-details', html: details, hidden: true }) : null;
+    if (more) {
+      const q = el('button', { type: 'button', class: 'secondary qmark', textContent: '?', title: 'Explain this' });
+      q.setAttribute('aria-expanded', 'false');
+      q.onclick = () => { more.hidden = !more.hidden; q.setAttribute('aria-expanded', String(!more.hidden)); };
+      btns.appendChild(q);
+    }
     let primary = null;
     for (const b of (buttons || [{ label: 'Cancel', cancel: true }, { label: ok, primary: true }])) {
       const btn = el('button', { type: 'button', class: b.primary ? 'ok' : 'secondary', textContent: b.label });
@@ -273,14 +306,32 @@ export function gemPrompt(message, value = '', { ok = 'OK', placeholder = '', ex
     }
     if (onInput) input.addEventListener('input', () => onInput(text()));
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); finish(primary); } });
-    card.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); finish(null); } });
+    const detachEsc = escCloses(card, () => finish(null));
     card.append(el('div', { class: 'gem-dialog-inner' }, el('div', { class: 'gem-dialog-icon', textContent: icon }),
-      el('div', { style: 'flex:1;min-width:0' }, msg, input, ...(chips ? [chips] : []))), btns);
+      el('div', { style: 'flex:1;min-width:0' }, msg, content,
+        label ? el('div', { class: 'gem-dialog-msg', html: label, style: 'margin-top:12px' }) : null,
+        input, chips, more)), btns);
     document.body.appendChild(card);
     card.showPopover();
     if (autofocus) { input.focus(); input.select(); }
     else (btns.querySelector('.ok') || btns.firstElementChild)?.focus();
   });
+}
+
+// A QR code to hand to gemPrompt's `content`: show(text) repaints it, and a
+// string past QR's ~2.9 KB ceiling leaves a plain note in its place rather than
+// an empty hole. The canvas is one pixel per module and is blown up by CSS, so
+// it stays sharp on any display.
+export function qrPanel(tooLongNote = 'too long for a QR code') {
+  const canvas = el('canvas', { class: 'gem-qr-img' });
+  const note = el('div', { class: 'gem-qr-note', hidden: true });
+  return {
+    node: el('div', { class: 'gem-qr' }, canvas, note),
+    show(text) {
+      try { drawQr(canvas, qrMatrix(text)); canvas.hidden = false; note.hidden = true; }
+      catch { canvas.hidden = true; note.hidden = false; note.textContent = tooLongNote; }
+    },
+  };
 }
 
 // A modal with several labelled inputs. fields: [{name,label,value?,placeholder?}].
@@ -297,13 +348,14 @@ export function gemFields(message, fields, { ok = 'OK' } = {}) {
       return el('div', { style: 'display:flex;gap:.5rem;align-items:center;margin-top:8px' }, el('label', { textContent: f.label, style: 'min-width:4rem' }), input);
     });
     const btns = el('div', { class: 'gem-dialog-btns' });
-    const done = (v) => { card.hidePopover(); card.remove(); resolve(v); };
+    const done = (v) => { detachEsc(); card.hidePopover(); card.remove(); resolve(v); };
     const submit = () => done(Object.fromEntries(fields.map((f) => [f.name, inputs[f.name].value.trim()])));
     const cancel = el('button', { type: 'button', class: 'secondary', textContent: 'Cancel' });
     const okBtn = el('button', { type: 'button', class: 'ok', textContent: ok });
     cancel.onclick = () => done(null); okBtn.onclick = submit;
     btns.append(cancel, okBtn);
-    card.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } else if (e.key === 'Escape') { e.preventDefault(); done(null); } });
+    card.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
+    const detachEsc = escCloses(card, () => done(null));
     card.append(el('div', { class: 'gem-dialog-inner' }, el('div', { class: 'gem-dialog-icon', textContent: '✎' }), el('div', { style: 'flex:1' }, msg, ...rows)), btns);
     document.body.appendChild(card);
     card.showPopover();

@@ -256,6 +256,10 @@ export class GraphRunner {
     };
     switch (node.type) {
       case 'source':
+        // Right after a reload the audio may still be arriving (store lookup,
+        // URL fetch, file decode) — n.loading is that fill in flight. Wait for
+        // it rather than failing a play pressed a beat too early.
+        if (node.loading) await node.loading;
         if (!node.source || !node.source.wav) throw new Error('Source is empty — load a sound file');
         return { kind: 'audio', bytes: node.source.wav, dur: wavDuration(node.source.wav) };
       case 'generator': {

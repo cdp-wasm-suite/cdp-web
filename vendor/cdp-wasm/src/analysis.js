@@ -5,7 +5,7 @@
 // to draw, edit, or feed back through `applyEffect(..., { brk })`.
 
 import { parseBreakpoints } from './envelope.js';
-import { conformChannels } from './catalog.js';
+import { conformChannels } from './effects.js';
 
 /**
  * Extract a sound's pitch contour, via `pvoc anal → repitch getpitch`. Pitch
