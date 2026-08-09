@@ -250,7 +250,14 @@
     .cable-insert:hover { background: var(--ink); color: var(--paper); }
 
     /* ---- draggable GEM windows (nodes) ---- */
-    .gwin { position: absolute; background: var(--paper); border: var(--frame); box-shadow: 4px 4px 0 var(--shadow); min-width: 210px; max-width: 380px; }
+    /* The port columns are absolutely positioned, so they add nothing to the
+       window's natural height. A node with many sockets (Gather, a multi-input
+       Faust patch) would otherwise run its ports out past the bottom of its own
+       box. --nports (set from JS whenever a column is built) floors the height at
+       whatever the taller column needs, so the window always contains its ports. */
+    .gwin { position: absolute; background: var(--paper); border: var(--frame); box-shadow: 4px 4px 0 var(--shadow); min-width: 210px; max-width: 380px;
+            --port-size: 14px; --port-gap: 12px; --port-top: 38px; --nports: 1;
+            min-height: calc(var(--port-top) + var(--nports) * (var(--port-size) + var(--port-gap)) - var(--port-gap) + 6px); }
     /* the window you last clicked — the target for the Delete key */
     .gwin.focused { outline: 3px solid var(--ink); outline-offset: 2px; }
     .gwin.selected { outline: 2px dashed var(--ink); outline-offset: 2px; }
@@ -265,6 +272,9 @@
     .gwin-body { padding: 12px; }
     /* shaded (rolled-up) window: just the title bar, ports tucked up to it */
     .gwin.shaded .gwin-body { display: none; }
+    /* Rolled up is a deliberately tight mode — the bar alone, with the ports tucked
+       up against it. Drop the port-count floor so it stays that way. */
+    .gwin.shaded { min-height: 0; }
     .gwin.shaded .gwin-ports { top: 7px; }
     .gwin-shade { width: 18px; height: 18px; padding: 0; border: var(--frame); background: var(--paper);
                   line-height: 1; flex: none; cursor: pointer; font: 13px/1 var(--ui); }
@@ -299,10 +309,10 @@
     .pfmark.sel { background: var(--ink); }
     .pfplayhead { position: absolute; top: -2px; bottom: -2px; width: 2px; margin-left: -1px; background: var(--ink); pointer-events: none; }
     .gwin select, .gwin .gem-trigger { min-width: 0; width: 100%; margin: 0; }
-    .gwin-ports { position: absolute; top: 38px; display: flex; flex-direction: column; gap: 12px; }
+    .gwin-ports { position: absolute; top: var(--port-top); display: flex; flex-direction: column; gap: var(--port-gap); }
     .gwin-ports-in { left: -8px; align-items: flex-start; }
     .gwin-ports-out { right: -8px; align-items: flex-end; }
-    .gport { width: 14px; height: 14px; background: var(--paper); border: var(--frame);
+    .gport { width: var(--port-size, 14px); height: var(--port-size, 14px); background: var(--paper); border: var(--frame);
              display: block; cursor: crosshair; box-sizing: border-box; touch-action: none; }
     .gport.full { background: var(--ink); }
     /* socket shape encodes signal type: audio square, spectral diamond, breakpoint circle */

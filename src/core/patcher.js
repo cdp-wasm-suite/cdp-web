@@ -22,7 +22,6 @@ import { beginNativeDragOut, hostSupportsDragOut, prepareNativeDragOut } from '.
 import { putWav, getWav, listWavs, removeWav, clearWavs, storeUsage, setStoreDiagnostics } from './audio-store.js';
 import { shareSupported, encodeShare, decodeShare, getShareParam, shareParamFromText, stripShareParam } from './share.js';
 import { resolvePatchView } from './patch-view.js';
-import { rememberNativeReadyReply } from './native-audio-transport.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -104,6 +103,20 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     canvas.style.width = Math.ceil(cw * zoom) + 'px';
     canvas.style.height = Math.ceil(ch * zoom) + 'px';
     updateMinimap();
+  }
+  // Publish the taller port column's socket count on the window, so the CSS
+  // min-height can keep the box tall enough to contain its own ports. Run after
+  // any change to n.portsIn / n.portsOut — nodes with dynamic I/O (Gather's
+  // ± input, a recompiled Faust patch) can outgrow their body by a long way,
+  // and everything that measures offsetHeight (canvas growth, auto-arrange,
+  // marquee) would under-read the node if the ports hung outside it.
+  // Counts DOM children rather than n.inPorts: inline breakpoint sockets
+  // (.rowport) are ports too, but they sit in their param row, not the column.
+  function syncPortHeight(n) {
+    if (!n?.el) return;
+    const rows = Math.max(n.portsIn?.childElementCount || 0, n.portsOut?.childElementCount || 0, 1);
+    n.el.style.setProperty('--nports', String(rows));
+    growCanvas();   // the desk has to reach the lowest socket
   }
   // Set the zoom factor, keeping a screen point fixed under the cursor (or the
   // viewport centre when no anchor is given, e.g. for the keyboard shortcuts).
@@ -324,8 +337,7 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
   // Inside the plugin the graph is per-instance document state owned by the host,
   // not shared browser localStorage (all plugin instances share one origin). We
   // route it to C++ instead — see persist()/readSaved() and the graph handler.
-  const inPlugin = () => typeof IPlugSendMsg === 'function'
-    && !window.CDPStudioEmbedded && !isEmbedded();
+  const inPlugin = () => typeof IPlugSendMsg === 'function';
   // Embedded in a native WebView host (DAW extension) — signalled by the #cdpHost
   // session hash (see host-bridge.js). Together with inPlugin this covers every
   // native WebView we run inside, vs. a plain browser tab.
@@ -1383,6 +1395,7 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     n.portsIn = portsIn; n.portsOut = portsOut;   // kept so nodes with dynamic I/O (Faust) can rebuild ports
     for (const p of n.inPorts || []) portsIn.appendChild(makePort(n, p, 'in'));
     if (n.outPort) portsOut.appendChild(makePort(n, n.outPort, 'out'));
+    syncPortHeight(n);
     // A window with resizable content (e.g. the Log) keeps its cables in step.
     new ResizeObserver(() => updateCablesFor(n.id)).observe(win);
 
@@ -2264,6 +2277,10 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
       n.setParamDriven = (portName, on) => driven[portName.slice('param:'.length)]?.(on);
       for (const pp of n.paramPorts) if (inEdge(patch, n.id, pp.name)) n.setParamDriven(pp.name, true);
       genBox.hidden = n.nIn !== 0;
+      // Last, once the param rows and generator strip are back: growCanvas()
+      // measures offsetHeight, and mid-rebuild the emptied body could shrink the
+      // canvas out from under a bottommost node.
+      syncPortHeight(n);
       requestAnimationFrame(() => updateCablesFor(n.id));
     };
 
@@ -2663,7 +2680,7 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
       const p = { name: 'in' + (n.inPorts.length + 1), kind: 'audio' };
       n.inPorts.push(p);
       n.portsIn.appendChild(makePort(n, p, 'in'));
-      updateCablesFor(n.id); markDirty();
+      syncPortHeight(n); updateCablesFor(n.id); markDirty();
     };
     delBtn.onclick = () => {
       if (n.inPorts.length <= 2) return;
@@ -2671,7 +2688,7 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
       if (inEdge(patch, n.id, last.name)) { log('disconnect the last input first'); return; }
       n.inPorts.pop();
       n.portEl[last.name]?.remove(); delete n.portEl[last.name];
-      updateCablesFor(n.id); markDirty();
+      syncPortHeight(n); updateCablesFor(n.id); markDirty();
     };
     body.appendChild(el('div', {}, addBtn, delBtn));
     // Once run, the collected sounds list themselves — so a gathered set can be
@@ -4150,14 +4167,7 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     // Tell the host we're ready to receive initial state. The host defers its param
     // and graph pushes until this arrives, because the WebView page load races the
     // host's poll timer — pushing before our globals/handlers exist would be lost.
-    try {
-      const readyReply = IPlugSendMsg({ msg: 'SUIRDY' });
-      if (readyReply && typeof readyReply.then === 'function') {
-        readyReply.then(rememberNativeReadyReply).catch(() => {});
-      } else {
-        rememberNativeReadyReply(readyReply);
-      }
-    } catch { /* bridge unavailable */ }
+    try { IPlugSendMsg({ msg: 'SUIRDY' }); } catch { /* bridge unavailable */ }
   }
   // Minimal host-integration surface, consumed by host-bridge.js when the app is
   // embedded in a native WebView host (e.g. a DAW extension). Inert in normal use.

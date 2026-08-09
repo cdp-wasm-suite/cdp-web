@@ -11,7 +11,7 @@ Based on the algorithms and documentation of the
 Embeds the [FAUST compiler](https://github.com/grame-cncm/faustwasm) for 
 custom DSP nodes.
 
-<img width="636" height="372" alt="cdp-web screenshot" src="img/gem.jpg" />
+<img width="636" height="372" alt="cdp-web screenshot" src="https://raw.githubusercontent.com/cdp-wasm-suite/cdp-web/main/img/gem.jpg" />
 
 ## Running it locally
 

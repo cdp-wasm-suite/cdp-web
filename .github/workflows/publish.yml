@@ -2,20 +2,22 @@
 # Packages. The VST plugin (cdp-plugin) and Ableton Live extension
 # (cdp-extension) consume this package instead of vendoring built assets.
 #
-# Runs on published releases, or manually via workflow_dispatch. The bundle is
-# built from the committed ./vendor engine snapshot (see vendor-engine.mjs), so
-# no npm install, wasm toolchain, or access to the private sibling repos is
-# needed. Bump "version" in package.json before publishing — GitHub Packages
-# rejects re-publishing an existing version.
+# Runs on every push to main (or manually via workflow_dispatch): if the
+# version in package.json has no vX.Y.Z release yet, it publishes the bundle
+# and then creates the release itself — so bumping "version" and pushing is
+# the entire release flow. The bundle is built from the committed ./vendor
+# engine snapshot (see vendor-engine.mjs), so no npm install, wasm toolchain,
+# or access to the private sibling repos is needed. GitHub Packages rejects
+# re-publishing an existing version.
 name: publish
 
 on:
-  release:
-    types: [published]
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 jobs:
@@ -32,12 +34,39 @@ jobs:
           node-version: 22
           registry-url: https://npm.pkg.github.com
 
+      # The release is created last, after a successful publish, so a failed
+      # publish leaves no release and the next push simply retries.
+      - name: Check whether this version is already released
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if gh release view "v$VERSION" -R "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "released=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "released=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build the self-contained bundle
+        if: steps.check.outputs.released == 'false'
         run: node scripts/bundle.mjs
 
       # The leading ./ matters: npm reads a bare `dist/bundle` as the GitHub
       # shorthand owner/repo and tries to clone it over SSH.
       - name: Publish dist/bundle
+        if: steps.check.outputs.released == 'false'
         run: npm publish ./dist/bundle
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create the GitHub release
+        if: steps.check.outputs.released == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          gh release create "v${{ steps.check.outputs.version }}"
+          -R "$GITHUB_REPOSITORY"
+          --title "v${{ steps.check.outputs.version }}"
+          --generate-notes

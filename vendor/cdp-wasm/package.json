@@ -1,6 +1,6 @@
 {
   "name": "cdp-wasm",
-  "version": "0.5.1",
+  "version": "0.5.3",
   "description": "CDP (Composers Desktop Project) audio processing programs compiled to WebAssembly, for Node.js and the browser.",
   "type": "module",
   "main": "./src/index.js",

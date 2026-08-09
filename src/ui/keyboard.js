@@ -43,9 +43,9 @@ const dbToGain = (db) => (db <= VOL_MIN ? 0 : Math.pow(10, db / 20));
 // Web Audio controls. We speak the stock native-host message names over IPlugSendMsg:
 // SPVFUI/BPCFUI/EPCFUI up (values normalized 0..1), SPVFD down (dispatched via
 // window.registerParamHandler, wired in index.html). Indices match the C++
-// ParamIndex enum in composers_desktop_plugin.h.
+// ParamIndex enum in cdp-plugin.h.
 const inPlugin = () => typeof IPlugSendMsg === 'function';
-const PARAM = { GAIN: 0, ATTACK: 1, DECAY: 2, SUSTAIN: 3, RELEASE: 4 };
+const PARAM = { GAIN: 0, ATTACK: 1, DECAY: 2, SUSTAIN: 3, RELEASE: 4, REPITCH: 5 };
 // Normalize/denormalize a range input against its own min/max (linear).
 const normOf = (input) => { const lo = +input.min, hi = +input.max; return hi > lo ? (+input.value - lo) / (hi - lo) : 0; };
 const denormTo = (input, n) => { const lo = +input.min, hi = +input.max; return lo + n * (hi - lo); };
@@ -104,9 +104,24 @@ export function createKeyboard(target, opts = {}) {
     repitchToggle.classList.toggle('on', on);
     repitchToggle.setAttribute('aria-pressed', on ? 'true' : 'false');
   };
+  // In the plugin, repitch is also a host parameter (PARAM.REPITCH): host-
+  // sequenced MIDI bypasses this UI entirely, so the C++ sampler needs the flag
+  // too — and parameter state is what restores the toggle across sessions.
+  const applyRepitch = (on) => { target.setRepitch(on); setRepitchLabel(on); };
+  const toggleRepitch = () => {
+    const on = !target.repitch;
+    applyRepitch(on);
+    if (inPlugin()) {
+      IPlugSendMsg({ msg: 'BPCFUI', paramIdx: PARAM.REPITCH });
+      IPlugSendMsg({ msg: 'SPVFUI', paramIdx: PARAM.REPITCH, value: on ? 1 : 0 });
+      IPlugSendMsg({ msg: 'EPCFUI', paramIdx: PARAM.REPITCH });
+    }
+  };
   if (target.setRepitch) {
     setRepitchLabel(!!target.repitch);
-    repitchToggle.addEventListener('click', () => { const on = !target.repitch; target.setRepitch(on); setRepitchLabel(on); });
+    repitchToggle.addEventListener('click', toggleRepitch);
+    if (inPlugin() && window.registerParamHandler)
+      window.registerParamHandler(PARAM.REPITCH, (norm) => applyRepitch(norm >= 0.5));
   } else {
     repitchToggle.style.display = 'none';
   }
@@ -122,7 +137,7 @@ export function createKeyboard(target, opts = {}) {
     if (target.setRepitch) items.push({
       label: 'Chromatic repitch',
       checked: !!target.repitch,
-      action: () => { const on = !target.repitch; target.setRepitch(on); setRepitchLabel(on); },
+      action: toggleRepitch,
     });
     items.push({ sep: true }, { group: `OCTAVE ${cfg.octave}` },
       { label: 'Octave −', disabled: cfg.octave <= 0, action: () => setOctave(cfg.octave - 1) },

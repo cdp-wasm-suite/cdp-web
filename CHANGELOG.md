@@ -5,6 +5,28 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-08-09
+
+### Fixed
+- **A node's box is now tall enough to hold its ports.** The port columns are
+  absolutely positioned, so a window with many sockets — a Gather with a dozen
+  inputs, a multi-input Faust patch — ran them out past the bottom of its own
+  box (#4). The window height now floors at whatever the taller port column
+  needs: **+ input** grows the box live, **− input** shrinks it straight back,
+  and everything that measures a node (desk growth, auto-arrange, marquee
+  selection, the minimap) now sees its true extent. Rolled-up windows keep
+  their deliberately tight bar-only look.
+- **The plugin's REPITCH toggle is a host parameter.** In the plugin WebView
+  the keyboard's repitch toggle now speaks the parameter bridge, so the native
+  sampler applies the same remap to host-sequenced MIDI, the setting is
+  restored with saved plugin state, and host automation can reach it.
+  Standalone and extension behaviour is unchanged.
+
+### Changed
+- **Bumped cdp-wasm to v0.5.3** — see the cdp-wasm changelog.
+- **The manual gained a Plugin page**, including how to route keyboard input
+  to the plug-in in REAPER.
+
 ## [0.5.0] - 2026-08-09
 
 De-slop-ification in progress.
