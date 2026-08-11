@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.3] - 2026-08-11
+
+### Added
+- **[WebMCP](https://developer.chrome.com/docs/ai/webmcp) support.**
+   The app registers 14 tools on the browser's
+  `document.modelContext` so an AI agent can co-author the patch with you on
+  the live canvas: search the ~250-effect catalog, add and cable nodes, tweak
+  parameters, load audio and render — while you watch, tweak and undo.
+  Available on cdp-web.app in Chrome 149+ via an origin trial (earlier
+  Chrome: enable `chrome://flags/#enable-webmcp-testing`); WebMCP is expected
+  to ship in Chrome around v157. In any other browser, opt in with
+  `?webmcp=bridge`, which loads the vendored MCP-B bridge and makes the tab
+  an MCP server that external clients (e.g. Claude, via the MCP-B extension)
+  can drive. Tools return only patch structure and audio metadata — never
+  audio bytes — and nothing is registered inside the plugin/extension
+  WebViews. See the README's "AI agent tools (WebMCP)" section.
+
 ## [0.5.2] - 2026-08-11
 
 ### Added

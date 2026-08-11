@@ -29,7 +29,7 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 // The bundled CDP demo sounds (audio/, shipped with the app and the dist bundle),
 // offered as one-click examples in the Source node's URL… dialog. Same relative
 // addresses the sound-file recipes use, so they resolve wherever the app is served.
-const DEMO_SOUNDS = [
+export const DEMO_SOUNDS = [
   { label: 'marimba', value: 'audio/marimba.wav', title: 'short pitched percussion — audio/marimba.wav' },
   { label: 'horn', value: 'audio/horn.wav', title: 'sustained instrument tone — audio/horn.wav' },
   { label: 'speech', value: 'audio/speech.wav', title: 'spoken counting voice — audio/speech.wav' },
@@ -954,17 +954,23 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
     if (scroll) desktop.scrollTo({ left: 0, top: 0, behavior: 'smooth' });
   }
 
+  // How to fix a type-mismatched connection, or '' — shown in the log when a drag
+  // fails, and returned to programmatic callers (connectByRef) with their error.
+  function connectHint(from, to, reason) {
+    if (!reason.startsWith('type mismatch')) return '';
+    const fk = portKind(node(from.node), from.port), tk = portKind(node(to.node), to.port);
+    if (fk === 'audio' && tk === 'spectral') return 'hint: double-click the ◇ input for a PVOC Analyse node';
+    if (fk === 'spectral' && tk === 'audio') return 'hint: double-click the ◇ output for a PVOC Resynthesise node';
+    if (fk === 'bank' && tk === 'audio') return 'hint: insert a Pick node (Process ▸ Control) to take one sound from the bank';
+    if (fk === 'audio' && tk === 'bank') return 'hint: insert a Gather node (Process ▸ Control) to collect sounds into a bank';
+    return '';
+  }
   function addEdge(from, to) {
     const v = validateConnection(patch, from, to);
     if (!v.ok) {
       log('cannot connect: ' + v.reason);
-      if (v.reason.startsWith('type mismatch')) {
-        const fk = portKind(node(from.node), from.port), tk = portKind(node(to.node), to.port);
-        if (fk === 'audio' && tk === 'spectral') log('hint: double-click the ◇ input for a PVOC Analyse node');
-        else if (fk === 'spectral' && tk === 'audio') log('hint: double-click the ◇ output for a PVOC Resynthesise node');
-        else if (fk === 'bank' && tk === 'audio') log('hint: insert a Pick node (Process ▸ Control) to take one sound from the bank');
-        else if (fk === 'audio' && tk === 'bank') log('hint: insert a Gather node (Process ▸ Control) to collect sounds into a bank');
-      }
+      const hint = connectHint(from, to, v.reason);
+      if (hint) log(hint);
       return false;
     }
     const kind = portKind(node(from.node), from.port);
@@ -4106,6 +4112,12 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
   // Plugin mode waits for CDPLoadGraph/CDPNoGraph after SUIRDY instead: creating a
   // default eagerly would overwrite the native graph on every editor reopen.
   if (!saved && !shareParam && !inPlugin()) spawnDefaultGraph();
+  // Startup document selection: with nothing to restore it is settled right
+  // now; a saved session or share link settles at the end of the async boot
+  // below, after the engine loads. Programmatic clients (webmcp.js) hold
+  // their edits until this flips, so the deferred loadPatch can't silently
+  // replace what an agent just built.
+  if (!saved && !shareParam) window.__patchRestored = true;
   (async () => {
     try {
       [programList, spectralSet] = await Promise.all([cdp.programs(), cdp.spectralPrograms().then((s) => new Set(s))]);
@@ -4139,13 +4151,143 @@ export function startPatcher(cdp, audioCtx, sampler = null) {
         else spawnDefaultGraph();
       }
     } else if (saved && !launchPending) { loadPatch(saved); log('restored patch from last session (File ▸ New patch to start over).'); }
+    window.__patchRestored = true;   // startup document selection settled
   })();
-  // expose the patch round-trip for the headless tests / power users
+  // ---- programmatic edit surface --------------------------------------------
+  // Where a node's parameter definitions live: the catalog for effects and
+  // generators, the compiled control list for a Faust device (plus its Duration
+  // row when it's a generator), the built-in Item row for Pick.
+  function paramDefsOf(n) {
+    if (n.type === 'transform') return byId[n.effectId]?.params || [];
+    if (n.type === 'generator') return genById[n.genId]?.params || [];
+    if (n.type === 'faust') {
+      return [...(n.params || []), ...(n.nIn === 0 ? [{ name: 'dur', label: 'Duration (s)' }] : [])];
+    }
+    if (n.type === 'pick') return [{ name: 'index', label: 'Item' }];
+    return [];
+  }
+  // Set one parameter programmatically, through the same widgets a user drives —
+  // a slider gets its value set and an 'input' dispatched (range.oninput writes
+  // state, updates the readout, marks the graph stale; the browser clamps to the
+  // row's bounds like a real drag), a discrete param drives its hidden <select>
+  // ('change' runs the state write and gemSelect's label sync). Returns the value
+  // actually applied, which may differ from the request by clamping.
+  function setNodeParam(n, name, value) {
+    const defs = paramDefsOf(n);
+    const p = defs.find((d) => d.name === name);
+    if (!p) throw new Error(`no param '${name}' on node ${n.id} — its params are: ${defs.map((d) => d.name).join(', ') || '(none)'}`);
+    if (n.state?.envs?.[name]) throw new Error(`param '${name}' on ${n.id} is driven by an envelope — remove the envelope first`);
+    if (inEdge(patch, n.id, 'param:' + name)) throw new Error(`param '${name}' on ${n.id} is driven by a cable — disconnect it first`);
+    const head = [...n.el.querySelectorAll('.prow-head')]
+      .find((h) => h.querySelector('.prow-label')?.textContent.trim() === p.label);
+    if (p.choices) {
+      const sel = head?.querySelector('select');
+      if (!sel) throw new Error(`param '${name}' on ${n.id} has no control`);
+      sel.value = String(value);
+      if (sel.value !== String(value)) {
+        throw new Error(`'${value}' is not a choice for '${name}' — choices are: ${p.choices.map(([l, v]) => `${v} (${l})`).join(', ')}`);
+      }
+      sel.dispatchEvent(new Event('change'));
+      return n.state.values[name];
+    }
+    const range = head?.querySelector('input[type=range]');
+    if (range) {
+      range.value = String(value);
+      range.dispatchEvent(new Event('input', { bubbles: true }));
+    } else {
+      // No widget on screen (e.g. the window is rebuilding): write the state
+      // directly so the edit still lands.
+      n.state.values[name] = Number(value);
+      markDirty();
+    }
+    return n.state.values[name];
+  }
+  // Cable two nodes from string / { node, port } refs. Ports default to the out
+  // port and the first input the connection validates against. Pre-validates so a
+  // failure carries CDP's reason + fix hint (addEdge only returns a boolean).
+  function connectByRef(fromRef, toRef) {
+    const norm = (ref) => {
+      const r = typeof ref === 'string' ? { node: ref } : { ...ref };
+      if (!node(r.node)) throw new Error(`no node '${r.node}' — nodes are: ${[...patch.nodes.keys()].join(', ')}`);
+      return r;
+    };
+    const from = norm(fromRef), to = norm(toRef);
+    if (!from.port) from.port = node(from.node).outPort?.name || 'out';
+    if (!to.port) {
+      const inputs = (node(to.node).inPorts || []).map((p) => p.name);
+      to.port = inputs.find((pn) => validateConnection(patch, from, { node: to.node, port: pn }).ok) || inputs[0] || 'in';
+    }
+    const v = validateConnection(patch, from, to);
+    if (!v.ok) {
+      const hint = connectHint(from, to, v.reason);
+      throw new Error('cannot connect: ' + v.reason + (hint ? ` (${hint})` : ''));
+    }
+    addEdge(from, to);
+    return { from, to };
+  }
+  // expose the patch round-trip + edit surface for the headless tests, the
+  // WebMCP tools (webmcp.js) and power users
   window.__patch = {
     serialize, loadPatch, undo, redo,
     arrange: applyAutoLayout,
     zoomToFit,
     hist: () => ({ len: history.length, i: histIndex }),
+    nodes: () => [...patch.nodes.values()].filter((n) => n.type !== 'log'),
+    edges: () => patch.edges.map((e) => ({ from: { ...e.from }, to: { ...e.to } })),
+    node,
+    paramDefs: (id) => { const n = node(id); return n ? paramDefsOf(n) : []; },
+    // Spawn from a serializeNode()-shaped spec (position optional — cascades like
+    // a menu add). Returns the live node.
+    addNode: (spec) => {
+      const n = spawnFromSpec(spec);
+      if (!n) throw new Error(`could not create node of type '${spec?.type}'`);
+      if (Number.isFinite(spec.x) && Number.isFinite(spec.y)) {
+        n.x = spec.x; n.y = spec.y; n.el.style.left = spec.x + 'px'; n.el.style.top = spec.y + 'px';
+      }
+      revealNode(n);
+      markDirty();
+      return n;
+    },
+    connect: connectByRef,
+    disconnect: (fromRef, toRef) => {
+      const f = typeof fromRef === 'string' ? { node: fromRef } : fromRef;
+      const t = typeof toRef === 'string' ? { node: toRef } : toRef;
+      const e = patch.edges.find((x) => x.from.node === f.node && x.to.node === t.node
+        && (!f.port || x.from.port === f.port) && (!t.port || x.to.port === t.port));
+      if (!e) {
+        const list = patch.edges.map((x) => `${x.from.node}:${x.from.port} → ${x.to.node}:${x.to.port}`).join('; ');
+        throw new Error(`no such cable — existing cables: ${list || '(none)'}`);
+      }
+      removeEdge(e);
+    },
+    removeNodeById: (id) => {
+      const n = node(id);
+      if (!n) throw new Error(`no node '${id}'`);
+      // Same guard the UI's delete applies (requestRemove): the last Output is
+      // the only place to Run and save, so it stays.
+      if (n.type === 'output' && [...patch.nodes.values()].filter((x) => x.type === 'output').length <= 1) {
+        throw new Error("the last Output node can't be deleted — add another with {type:'output'} first");
+      }
+      removeNode(n);
+    },
+    setParam: (id, name, value) => {
+      const n = node(id);
+      if (!n) throw new Error(`no node '${id}'`);
+      return setNodeParam(n, name, value);
+    },
+    // Generator free-text data (chord notes, click times…): fill the node's
+    // <textarea> and dispatch 'input', the same path a user's typing takes.
+    setData: (id, text) => {
+      const n = node(id);
+      if (!n) throw new Error(`no node '${id}'`);
+      const ta = n.el.querySelector('textarea');
+      if (!ta) throw new Error(`node ${id} has no data text box`);
+      ta.value = text;
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+    },
+    newPatch,
+    reveal: (id) => { const n = node(id); if (n) revealNode(n); },
+    bpm: getBpm,
   };
   // Plugin mode: accept a graph restored from the host's plugin state. The host may
   // push it before the CDP WASM modules finish loading (tone/raw nodes need them),

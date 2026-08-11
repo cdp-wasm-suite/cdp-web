@@ -35,6 +35,34 @@ npm install
 npm run serve # http://localhost:8000/  (pass a port: node serve.mjs 3000)
 ```
 
+## AI agent tools (WebMCP)
+
+The app registers 14 [WebMCP](https://github.com/webmachinelearning/webmcp)
+tools on `document.modelContext`, so a browser-side AI agent can co-author the
+patch with you on the same live canvas: inspect the graph and the ~250-effect
+catalog, add/cable/edit nodes incrementally, load audio and render — while you
+watch, tweak and undo. See `src/core/webmcp-tools.js` for the tool list.
+
+Status: behind `chrome://flags/#enable-webmcp-testing` (Chrome 146+); a Chrome
+origin trial runs from 149 (token placeholder in `index.html`); expected to
+ship around Chrome 157. Standalone browser/PWA only — never registered inside
+the plugin/extension WebViews.
+
+Any other browser can join in through the optional
+[MCP-B](https://mcp-b.ai/) bridge, which makes the tab an MCP server for
+external clients (e.g. Claude with the MCP-B extension):
+
+1. Install the MCP-B browser extension.
+2. Open `https://cdp-web.app/?webmcp=bridge` (or set
+   `localStorage['cdp-webmcp'] = 'bridge'` to keep it on).
+3. The tab appears as an MCP server named after the page — connect your client
+   to it and the 14 tools are available.
+
+Privacy: tools only ever return patch structure and audio *metadata* (duration,
+channels, sample rate) — never audio bytes. Nothing loads and nothing is
+announced unless you opt in; the 390 KB bridge script is fetched only in bridge
+mode.
+
 ## The npm package
 
 `npm run bundle` assembles a self-contained embeddable build in `dist/bundle/`
@@ -66,6 +94,7 @@ Each keeps its own license; none of them are covered by this repo's AGPL.
 - **`@cdp-wasm-suite/cdp-sampler`** — LGPL-2.1-or-later.
 - **`@grame/faustwasm`** — LGPL, © GRAME-CNCM.
 - **`monaco-editor`** — MIT.
+- **`@mcp-b/global`** — MIT. WebMCP bridge, loaded only in `?webmcp=bridge` mode.
 
 ## License
 

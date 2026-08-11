@@ -68,6 +68,9 @@ const PKG_INCLUDE = [
   'monaco-editor/min/vs/editor',
   'monaco-editor/min/vs/base',
   'monaco-editor/package.json',
+  // WebMCP bridge, loaded lazily by webmcp.js only in ?webmcp=bridge mode.
+  '@mcp-b/global/dist/index.iife.js',
+  '@mcp-b/global/package.json',
 ];
 
 // App files whose `./node_modules/…` runtime references must point at the

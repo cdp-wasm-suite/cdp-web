@@ -10,6 +10,7 @@ import { initTheme, initFont } from '../ui/themes.js';
 import { createSampler } from '../dsp/sampler.js';
 import { initHostBridge } from './host-bridge.js';
 import { initOffline } from './offline.js';
+import { initWebmcp } from './webmcp.js';
 
 initTheme(); // restore the saved colour scheme before the UI builds
 initFont();  // …and the saved UI font
@@ -90,3 +91,8 @@ initHostBridge();
 // Offline support (service worker). No-op inside native hosts and in dev-ish
 // contexts without the API; see src/core/offline.js and ./sw.js.
 initOffline();
+
+// WebMCP agent tools (document.modelContext). No-op inside native hosts and in
+// browsers without the API; safe here because startPatcher assigned __patch /
+// __cdpHost synchronously above. See src/core/webmcp.js.
+initWebmcp();

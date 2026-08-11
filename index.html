@@ -86,6 +86,13 @@
     }
   }
   </script>
+  <!-- WebMCP origin trial (Chrome 149–156, trial id 4163014905550602241): lets
+       document.modelContext exist for https://cdp-web.app visitors without the
+       chrome://flags #enable-webmcp-testing flag. GitHub Pages can't send
+       response headers, so the token lives in this meta tag. Renew at
+       https://developer.chrome.com/origintrials (token expires ~17 Nov 2026;
+       inert on other origins, e.g. localhost dev). -->
+  <meta http-equiv="origin-trial" content="As6bCKEQ2360Mb2RJBLmE5OygZM6bvy16gyDzWZC7Z6+8EMrw0XAn0l3LWam0hKf+AiQbL8MhP+tEY/aIuoOUgIAAABLeyJvcmlnaW4iOiJodHRwczovL2NkcC13ZWIuYXBwOjQ0MyIsImZlYXR1cmUiOiJXZWJNQ1AiLCJleHBpcnkiOjE3OTQ4NzM2MDB9" />
   <!-- Must match the manifest's "name" byte for byte: Chrome titles an installed
        PWA window "<app name> - <document.title>" and collapses it to one when
        they're identical. Any drift here shows up as a doubled title bar. -->

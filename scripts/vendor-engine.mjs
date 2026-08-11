@@ -30,6 +30,10 @@ const SPECS = [
   // faust.js loads instantiateFaustModule() from the esm-bundle, which inlines
   // libfaust's wasm+data — so no external libfaust-wasm/ assets are needed.
   ['@grame/faustwasm', ['dist/esm-bundle', 'package.json']],
+  // WebMCP bridge (webmcp.js loads the self-contained IIFE only when the user
+  // opts in with ?webmcp=bridge — the ESM entry pulls a tree of bare specifiers,
+  // so the import map never learns about it).
+  ['@mcp-b/global', ['dist/index.iife.js', 'package.json']],
   // Monaco's self-contained AMD build (code-editor.js loads min/vs/loader.js).
   // Only the editor core + worker/base assets; basic-languages and the
   // JSON/CSS/TS language services are never loaded (we register our own

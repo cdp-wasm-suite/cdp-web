@@ -61,12 +61,22 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Release notes come from CHANGELOG.md — `--generate-notes` has nothing
+      # to summarise here, since this repo's history is one squashed snapshot
+      # commit per release (see publish-clean.sh in the dev repo).
       - name: Create the GitHub release
         if: steps.check.outputs.released == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: >
-          gh release create "v${{ steps.check.outputs.version }}"
-          -R "$GITHUB_REPOSITORY"
-          --title "v${{ steps.check.outputs.version }}"
-          --generate-notes
+          VERSION: ${{ steps.check.outputs.version }}
+        run: |
+          awk "/^## \[$VERSION\]/{f=1;next} /^## \[/{f=0} f" CHANGELOG.md > notes.md
+          if [ -s notes.md ]; then
+            printf '\n**Try it: https://cdp-web.app/**\n' >> notes.md
+            gh release create "v$VERSION" -R "$GITHUB_REPOSITORY" \
+              --title "v$VERSION" --notes-file notes.md
+          else
+            echo "⚠ no CHANGELOG.md section for $VERSION — falling back to generated notes"
+            gh release create "v$VERSION" -R "$GITHUB_REPOSITORY" \
+              --title "v$VERSION" --generate-notes
+          fi

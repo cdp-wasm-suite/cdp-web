@@ -1,0 +1,108 @@
+{
+  "name": "@mcp-b/global",
+  "version": "4.0.0",
+  "description": "W3C Web Model Context Protocol (WebMCP) API polyfill. Let AI agents like Claude, ChatGPT, and Gemini interact with your website via document.modelContext.",
+  "keywords": [
+    "ai-agents",
+    "ai-assistant",
+    "ai-integration",
+    "ai-tools",
+    "anthropic",
+    "browser",
+    "browser-ai",
+    "chatgpt",
+    "chromium",
+    "claude",
+    "copilot",
+    "cursor",
+    "gemini",
+    "iife",
+    "llm",
+    "mcp",
+    "model-context-protocol",
+    "navigator-modelcontext",
+    "openai",
+    "polyfill",
+    "tool-registration",
+    "w3c",
+    "web-ai",
+    "web-model-context",
+    "web-standard",
+    "webmcp"
+  ],
+  "homepage": "https://docs.mcp-b.ai/packages/global/reference",
+  "bugs": {
+    "url": "https://github.com/WebMCP-org/npm-packages/issues"
+  },
+  "license": "MIT",
+  "author": "Alex Nahas",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WebMCP-org/npm-packages.git",
+    "directory": "packages/global"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "sideEffects": true,
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "browser": "./dist/index.iife.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./iife": {
+      "script": "./dist/index.iife.js",
+      "default": "./dist/index.iife.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "dependencies": {
+    "@mcp-b/webmcp-polyfill": "4.0.0",
+    "@mcp-b/transports": "4.0.0",
+    "@mcp-b/webmcp-ts-sdk": "4.0.0",
+    "@mcp-b/webmcp-types": "4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.17.2",
+    "@vitest/coverage-v8": "^4.1.7",
+    "fast-check": "^4.0.0",
+    "playwright": "^1.60.0",
+    "typescript": "^5.8.3",
+    "vite-plus": "^0.1.22",
+    "vitest": "npm:@voidzero-dev/vite-plus-test@latest"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "vp pack",
+    "check": "vp check --fix",
+    "clean": "rm -rf dist",
+    "format": "vp fmt --write",
+    "lint": "vp lint --fix",
+    "publish:dry": "pnpm publish --access public --dry-run",
+    "publish:npm": "pnpm publish --access public",
+    "test": "vp test run",
+    "test:browser": "vp test run --browser.headless",
+    "test:browser:ui": "vp test --browser",
+    "test:conformance:global": "vp test run --config vitest.conformance.global.config.ts --browser.headless",
+    "test:conformance:matrix": "pnpm run test:conformance:polyfill && pnpm run test:conformance:global && pnpm run test:conformance:native",
+    "test:conformance:native": "vp test run --config vitest.conformance.native.config.ts --browser.headless",
+    "test:conformance:polyfill": "pnpm --filter @mcp-b/webmcp-polyfill run test:conformance",
+    "test:node": "vp test run --config vitest.node.config.ts",
+    "test:watch": "vp test",
+    "typecheck": "tsc --noEmit && vp test run --typecheck --silent",
+    "version:major": "pnpm version major --no-git-tag-version",
+    "version:minor": "pnpm version minor --no-git-tag-version",
+    "version:patch": "pnpm version patch --no-git-tag-version"
+  }
+}
