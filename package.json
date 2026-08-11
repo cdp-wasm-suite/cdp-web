@@ -1,6 +1,6 @@
 {
   "name": "@cdp-wasm-suite/cdp-web",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "private": true,
   "description": "Browser front-end (GEM-desktop modular patcher) for CDP, built on cdp-wasm. Also serves as the shared UI for the VST plugin and Ableton Live extension.",
   "license": "AGPL-3.0-or-later",

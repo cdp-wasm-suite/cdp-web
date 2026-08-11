@@ -27,6 +27,12 @@ export function applyTheme(name) {
   for (const [k, v] of Object.entries(t.vars)) r.style.setProperty(k, v);
   r.style.colorScheme = t.dark ? 'dark' : 'light';   // native control rendering
   r.dataset.theme = name;
+  // Keep the browser/OS chrome on the theme too: the installed window's title
+  // bar (and its Window Controls Overlay button strip) and Android's status
+  // bar are painted from this meta, and a white frame over the Green terminal
+  // theme looks like a bug. index.html's static value matches GEM.
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = t.vars['--paper'];
   try { localStorage.setItem(KEY, name); } catch { /* storage disabled */ }
   window.dispatchEvent(new CustomEvent('themechange', { detail: name }));
   return name;

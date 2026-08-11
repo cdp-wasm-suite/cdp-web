@@ -5,6 +5,25 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] - 2026-08-11
+
+### Added
+- **The app now works offline.** A service worker caches everything the app
+  needs — including all 242 on-demand CDP programs, the Faust compiler and the
+  manual (~19 MB, seeded in the background on first visit) — and serves it
+  when the network is gone. Online behaviour is unchanged: every request still
+  goes to the network first, so a deploy is picked up on the next load. The
+  code editor (Monaco) is cached the first time it is opened rather than up
+  front. Browser only; the plugin and extension WebViews are untouched.
+- **Window Controls Overlay.** Installed as an app on desktop Chrome/Edge, the
+  GEM menu bar can now take over the title bar (opt in via the ⌄ in the title
+  bar): edge-to-edge desktop, with the bar doubling as the window's drag
+  handle and the menus laid out clear of the window buttons on both Windows
+  and macOS.
+- **The title bar and Android status bar follow the theme.** The browser's
+  `theme-color` now tracks the active theme's paper colour instead of staying
+  white over the terminal themes.
+
 ## [0.5.1] - 2026-08-09
 
 ### Fixed

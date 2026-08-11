@@ -9,6 +9,7 @@ import { startPatcher } from './patcher.js';
 import { initTheme, initFont } from '../ui/themes.js';
 import { createSampler } from '../dsp/sampler.js';
 import { initHostBridge } from './host-bridge.js';
+import { initOffline } from './offline.js';
 
 initTheme(); // restore the saved colour scheme before the UI builds
 initFont();  // …and the saved UI font
@@ -85,3 +86,7 @@ startPatcher(cdp, audioCtx, sampler);
 // Activate the host-integration bridge when embedded (e.g. inside the Ableton
 // Live extension). No-op in normal browser use.
 initHostBridge();
+
+// Offline support (service worker). No-op inside native hosts and in dev-ish
+// contexts without the API; see src/core/offline.js and ./sw.js.
+initOffline();

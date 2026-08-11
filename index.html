@@ -181,6 +181,26 @@
       .menubar .support-icon {
         width: 48px; min-height: 40px; padding: 6px 12px; border-left: var(--frame); font-size: 18px; }
     }
+    /* Installed with Window Controls Overlay (`display_override` in the
+       manifest; desktop Chromium, user opts in via the ⌄ in the title bar):
+       the OS title bar disappears and the menu bar takes its place, edge to
+       edge like a real GEM desktop. The env() vars describe the strip not
+       covered by the window buttons — on Windows they sit at the right
+       (x = 0, width < 100vw, so the right padding grows), on macOS at the
+       left (x > 0, so the left padding grows) — and the drag regions make
+       the bar move the window, with every interactive cell carved back out. */
+    @media (display-mode: window-controls-overlay) {
+      .menubar {
+        -webkit-app-region: drag; app-region: drag;
+        min-height: env(titlebar-area-height, 38px);
+        padding-left: max(env(titlebar-area-x, 0px), env(safe-area-inset-left));
+        padding-right: max(calc(100% - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100%)), env(safe-area-inset-right));
+      }
+      .menubar button, .menubar a { -webkit-app-region: no-drag; app-region: no-drag; }
+      /* Buttons centre their content on their own; the logo span needs help
+         when the title-bar strip is taller than the bar's natural height. */
+      .menubar .brand-cell { display: flex; align-items: center; }
+    }
     .menubar span { cursor: default; }
     .menubar button { font: inherit; background: none; color: var(--ink); border: 0; border-radius: 0; box-shadow: none; margin: 0; cursor: pointer; }
     .menubar span:not(.spacer):not(.brand-cell):not(.app-version):hover, .menubar button:hover, .menubar button:active:not(:disabled), .menubar a:hover { background: var(--ink); color: var(--paper); }
@@ -994,7 +1014,7 @@
            source. This link is that offer — if you fork and host a modified cdp-web,
            point it at your own source, don't just leave it here. -->
       <div class="t2">Licensed <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noopener">AGPL-3.0-or-later</a>.
-        <a href="https://github.com/olilarkin/cdp-web" target="_blank" rel="noopener">Source</a>.
+        <a href="https://github.com/cdp-wasm-suite/cdp-web" target="_blank" rel="noopener">Source</a>.
         Bundled CDP and FAUST components remain LGPL.</div>
       <div class="t2 version" id="aboutVersion"></div>
       <button class="ok" id="aboutOk">OK</button>
