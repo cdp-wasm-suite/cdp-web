@@ -331,8 +331,8 @@ async function waitForRestore(timeoutMs = 20000) {
 }
 
 // Every execute reports failures as an in-band MCP error result: agents
-// self-correct from a corrective message, while a thrown exception surfaces
-// differently (or not at all) across native WebMCP vs the bridge.
+// self-correct from a corrective message, while a thrown exception may not
+// reach them at all.
 const wrap = (fn) => async (input) => {
   try {
     await waitForRestore();
@@ -354,49 +354,13 @@ export function initWebmcp() {
   setup().catch((e) => log('webmcp: init failed — ' + (e?.message || e)));
 }
 
-// Optional MCP-B bridge (@mcp-b/global): polyfills document.modelContext and
-// serves this tab's tools to external MCP clients through the MCP-B browser
-// extension — WebMCP in any browser, today. Opt-in only (?webmcp=bridge once,
-// or localStorage 'cdp-webmcp'='bridge' to keep it on): it is 390 KB the native
-// path never needs, and it announces the tab to the extension. The self-
-// contained IIFE build is loaded (the ESM entry imports a tree of bare
-// specifiers the import map would have to chase); it honours
-// __webModelContextOptions.autoInitialize, which MUST be set before the script
-// evaluates or it wires a default transport on its own.
-async function initBridgeIfOptedIn() {
-  let mode = null;
-  try { mode = new URLSearchParams(location.search).get('webmcp') || localStorage.getItem('cdp-webmcp'); } catch { /* storage disabled */ }
-  if (mode !== 'bridge') return;
-  window.__webModelContextOptions = { autoInitialize: false };
-  // node_modules/ serves dev and the deployed site (build-site copies vendor/
-  // in under that name); vendor/ serves the published npm bundle.
-  let err;
-  for (const src of ['./node_modules/@mcp-b/global/dist/index.iife.js', './vendor/@mcp-b/global/dist/index.iife.js']) {
-    try {
-      await new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = src;
-        s.onload = resolve;
-        s.onerror = () => { s.remove(); reject(new Error(`could not load ${src}`)); };
-        document.head.appendChild(s);
-      });
-      err = null; break;
-    } catch (e) { err = e; }
-  }
-  if (err) throw err;
-  window.WebMCP.initializeWebModelContext({ transport: { tabServer: { allowedOrigins: ['*'] } } });
-  log('webmcp: MCP-B bridge active — this tab is an MCP server for the MCP-B extension.');
-}
-
 async function setup() {
   // Debug/test surface: the same wrapped executes the tools register, callable
   // from any browser console or test rig regardless of WebMCP availability —
-  // window.__webmcp.call('get_patch', {}).
+  // window.__webmcp.call('get_patch', {}). Also how external MCP clients can
+  // drive the tools without native WebMCP (e.g. via chrome-devtools-mcp's
+  // evaluate_script).
   window.__webmcp = { defs: TOOL_DEFS, call: (name, input) => wrap(EXEC[name] || (() => { throw new Error(`no tool '${name}'`); }))(input) };
-  // The bridge (when opted in) must be up before the feature-detect below —
-  // it is what provides document.modelContext in browsers without native WebMCP.
-  try { await initBridgeIfOptedIn(); }
-  catch (e) { log('webmcp: bridge unavailable — ' + (e?.message || e)); }
   if (!('modelContext' in document)) return;   // browser has no WebMCP (yet)
   const ac = new AbortController();
   let ok = 0;

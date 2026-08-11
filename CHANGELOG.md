@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.4] - 2026-08-11
+
+### Removed
+- **The MCP-B bridge** (`?webmcp=bridge` and the vendored `@mcp-b/global`).
+  External MCP clients can drive the same 14 tools through the
+  `window.__webmcp` debug surface instead (e.g. Claude Code via
+  chrome-devtools-mcp's `evaluate_script`), without a third-party browser
+  extension. Native WebMCP on `document.modelContext` is unchanged.
+
 ## [0.5.3] - 2026-08-11
 
 ### Added
